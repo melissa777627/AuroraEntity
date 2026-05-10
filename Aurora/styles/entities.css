@@ -1,0 +1,34 @@
+/* Entity ambient color system
+   Per-entity colors are injected dynamically via <style> tags in chat.js
+   This file defines the CSS variable contract and fallbacks. */
+
+.chat-screen {
+  --entity-primary: var(--accent);
+  --entity-secondary: var(--bg-secondary);
+}
+
+.chat-header {
+  background: var(--entity-secondary);
+  border-bottom: 2px solid var(--entity-primary);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+
+.entity-bubble {
+  border-left: 3px solid var(--entity-primary);
+  background: var(--bubble-entity);
+}
+
+.entity-bubble .bubble-header .entity-icon-badge {
+  background: var(--entity-primary);
+}
+
+.moon-badge {
+  background: var(--entity-primary);
+  color: var(--text-primary);
+  transition: background 0.4s ease;
+}
+
+/* Sidebar active entity highlight */
+.entity-nav-item.active {
+  border-right-color: var(--entity-primary, var(--accent-deep));
+}
