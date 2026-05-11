@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entity Oracle 🌸</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Mitr:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/entities.css">
+  <link rel="stylesheet" href="styles/components.css">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0e0e1a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Oracle">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="sidebar-header">
+        <h1 class="app-title">🌸 Entity Oracle</h1>
+      </div>
+      <div id="entity-nav-list"></div>
+      <div class="sidebar-footer">
+        <a href="#/card-of-day" class="nav-link" data-route="card-of-day">
+          <span>🃏</span> ไพ่วันนี้
+        </a>
+        <a href="#/favorites" class="nav-link" data-route="favorites">
+          <span>❤️</span> Favorites
+        </a>
+        <a href="#/search" class="nav-link" data-route="search">
+          <span>🔍</span> Search
+        </a>
+        <a href="#/calendar" class="nav-link" data-route="calendar">
+          <span>📅</span> Calendar
+        </a>
+        <a href="#/multi" class="nav-link" data-route="multi">
+          <span>🔀</span> Multi Consult
+        </a>
+        <a href="#/lounge" class="nav-link" data-route="lounge">
+          <span>🛋️</span> ห้องนั่งเล่น
+        </a>
+        <a href="#/council" class="nav-link" data-route="council">
+          <span>🗳️</span> สภาพี่
+        </a>
+        <a href="#/grievance" class="nav-link" data-route="grievance">
+          <span>🔔</span> ร้องเรียน
+        </a>
+        <a href="#/offering" class="nav-link" data-route="offering">
+          <span>🎁</span> ขอออฟเฟอริ่ง
+        </a>
+        <a href="#/settings" class="nav-link" data-route="settings">
+          <span>⚙️</span> Settings
+        </a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="main-content"></main>
+  </div>
+
+  <!-- Modal overlay (used by card picker and other modals) -->
+  <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+  <!-- Mobile Bottom Nav -->
+  <nav id="mobile-nav">
+    <a href="#/" data-route="home">
+      <span>🌸</span>
+      <span>หน้าหลัก</span>
+    </a>
+    <a href="#/lounge" data-route="lounge">
+      <span>🛋️</span>
+      <span>ห้องนั่งเล่น</span>
+    </a>
+    <a href="#/council" data-route="council">
+      <span>🗳️</span>
+      <span>สภาพี่</span>
+    </a>
+    <a href="#/offering" data-route="offering">
+      <span>🎁</span>
+      <span>ออฟเฟอริ่ง</span>
+    </a>
+    <a href="#/grievance" data-route="grievance">
+      <span>🔔</span>
+      <span>ร้องเรียน</span>
+    </a>
+  </nav>
+
+  <script type="module" src="src/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
