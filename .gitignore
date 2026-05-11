@@ -1,0 +1,5 @@
+data/settings.json
+data/entities.json
+data/readings.json
+data/favorites.json
+node_modules/
