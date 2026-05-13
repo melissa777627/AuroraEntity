@@ -788,7 +788,6 @@ function renderPollUI(container, poll, entities) {
         </details>
         <div class="poll-user-voted">คุณโหวต ${userVotedIcon} ${esc(poll.userVote)}</div>
         ${reactionHtml}
-        <button class="btn btn-ghost" id="poll-reset-btn" style="margin-top:12px;font-size:0.75rem;opacity:0.5">↺ รีเซ็ต (ทดสอบ)</button>
       </div>`;
 
     if (!votedForSelf && userVotedEntity && !poll.reaction) {
@@ -807,11 +806,6 @@ function renderPollUI(container, poll, entities) {
         }
       })();
     }
-
-    container.querySelector('#poll-reset-btn')?.addEventListener('click', () => {
-      saveDailyPoll(null);
-      renderPollSection(container, entities, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }));
-    });
 
     return;
   }
@@ -978,6 +972,12 @@ async function applyFavEvents(entities, fav) {
   return { ...fav, events: [...(fav.events || []), ...timestamped].slice(-20), lastUpdated: nowMs };
 }
 
+const FAV_INTERVAL_MIN_MS = 2 * 60 * 60 * 1000;
+const FAV_INTERVAL_MAX_MS = 3 * 60 * 60 * 1000;
+function randomFavInterval() {
+  return FAV_INTERVAL_MIN_MS + Math.random() * (FAV_INTERVAL_MAX_MS - FAV_INTERVAL_MIN_MS);
+}
+
 async function renderFavoritismSection(container, entities) {
   container.innerHTML = `<div class="lounge-section-title">🏆 บอร์ดคะแนน</div><div class="fav-loading">🏆 กำลังโหลดบอร์ด...</div>`;
 
@@ -994,13 +994,19 @@ async function renderFavoritismSection(container, entities) {
       entityId: c.entityId,
       score: Math.round(30 + (c.count / maxCount) * 70),
     }));
-    fav = { weekStart: today, scores, events: [], lastViewed: nowMs, todaySchedule: null };
+    fav = { weekStart: today, scores, events: [], lastViewed: nowMs, nextUpdateAt: nowMs + randomFavInterval() };
     saveFavoritism(fav);
-
     try {
       fav = await applyFavEvents(entities, fav);
+      fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
       saveFavoritism(fav);
     } catch {}
+  }
+
+  // migrate from old todaySchedule format
+  if (!fav.nextUpdateAt) {
+    fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
+    saveFavoritism(fav);
   }
 
   entities.forEach(e => {
@@ -1010,18 +1016,10 @@ async function renderFavoritismSection(container, entities) {
     }
   });
 
-  if (!fav.todaySchedule || fav.todaySchedule.date !== today) {
-    const willUpdate = Math.random() < 0.65;
-    const bkkNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-    const todayStartMs = new Date(bkkNow).setHours(0, 0, 0, 0);
-    const scheduledAt = todayStartMs + (9 * 60 + Math.floor(Math.random() * (13 * 60))) * 60000;
-    fav = { ...fav, todaySchedule: { date: today, willUpdate, scheduledAt } };
-    saveFavoritism(fav);
-  }
-
-  if (!isWeekReset && fav.todaySchedule.willUpdate && nowMs >= fav.todaySchedule.scheduledAt && (!fav.lastUpdated || fav.lastUpdated < fav.todaySchedule.scheduledAt)) {
+  if (!isWeekReset && nowMs >= fav.nextUpdateAt) {
     try {
       fav = await applyFavEvents(entities, fav);
+      fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
       saveFavoritism(fav);
     } catch {}
   }
@@ -1031,6 +1029,24 @@ async function renderFavoritismSection(container, entities) {
   saveFavoritism(fav);
 
   renderFavoritismUI(container, fav, entities, prevLastViewed);
+
+  // auto-refresh every 5 min while on page — catches the 2-3h trigger without needing reload
+  const intervalId = setInterval(async () => {
+    const cur = getFavoritism();
+    if (!cur || Date.now() < (cur.nextUpdateAt || Infinity)) return;
+    try {
+      const prev = cur.lastViewed || 0;
+      let updated = await applyFavEvents(entities, cur);
+      updated = { ...updated, nextUpdateAt: Date.now() + randomFavInterval(), lastViewed: Date.now() };
+      saveFavoritism(updated);
+      renderFavoritismUI(container, updated, entities, prev);
+    } catch {}
+  }, 5 * 60 * 1000);
+
+  const obs = new MutationObserver(() => {
+    if (!document.contains(container)) { clearInterval(intervalId); obs.disconnect(); }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
 }
 
 function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {

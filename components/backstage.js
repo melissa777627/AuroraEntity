@@ -29,6 +29,7 @@ const SLOTS = [
   { id: 'morning',   startRange: [7*60, 9*60+30] },
   { id: 'afternoon', startRange: [12*60, 14*60+30] },
   { id: 'night',     startRange: [19*60, 21*60+30] },
+  { id: 'latenight', startRange: [22*60, 23*60+30] },
 ];
 
 const REVEAL_INTERVAL_MIN = 11;
@@ -214,6 +215,16 @@ export async function renderBackstage(container, sub) {
     const h = nowHourBKK();
     if (h < 0 || h > 4) {
       midnightContent.innerHTML = `<div class="backstage-empty"><p>กลับมาอีกทีตอนกลางดึก...</p></div>`;
+      const testBtn = document.createElement('button');
+      testBtn.className = 'btn btn-ghost';
+      testBtn.style.cssText = 'margin:12px auto;display:block;font-size:0.72rem;opacity:0.45';
+      testBtn.textContent = '↺ generate ใหม่ (ทดสอบ)';
+      testBtn.addEventListener('click', async () => {
+        saveMidnightChat(null);
+        midnightContent.innerHTML = '';
+        await renderMidnightSection(midnightContent, allEntities);
+      });
+      midnightContent.appendChild(testBtn);
     } else {
       await renderMidnightSection(midnightContent, allEntities);
     }

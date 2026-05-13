@@ -2414,7 +2414,7 @@
 }
 
 /* ─── Backstage Chat ───────────────────────── */
-.backstage-page { max-width: 520px; margin: 0 auto; background: white; }
+.backstage-page { max-width: 520px; margin: 0 auto; }
 .backstage-header { text-align: center; padding: 20px 0 0; }
 .backstage-title {
   font-size: 0.88rem;
@@ -2434,14 +2434,14 @@
   font-size: 0.82rem;
   color: var(--text-soft);
   text-decoration: none;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(232,130,154,0.3);
   transition: all 0.18s;
 }
-.backstage-tab-btn:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.28); }
+.backstage-tab-btn:hover { color: var(--text-primary); border-color: var(--accent); }
 .backstage-tab-btn.active {
-  background: rgba(255,255,255,0.08);
+  background: rgba(232,130,154,0.15);
   color: var(--text-primary);
-  border-color: rgba(255,255,255,0.25);
+  border-color: var(--accent-deep);
 }
 
 .bs-episode {
