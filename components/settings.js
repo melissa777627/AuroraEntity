@@ -1,4 +1,11 @@
-import { getSettings, saveSettings, getEntities, getReadings, getFavorites, getOfferingHistory, set, get } from '../src/storage.js';
+import {
+  getSettings, saveSettings, getEntities, getReadings, getFavorites,
+  getOfferingHistory, getGrievanceHistory, getCouncilSessions, getManifestLetters,
+  getComfortHistory, getBackstageEpisodes, getMailbox, getFavoritism, getMidnightChat,
+  getCardOfDay, getDailyPostcard, getDailyPoll, getDailyGrievance, getDailyOffering,
+  getDailyActivity, getDailyQuestion, getDivineMessage,
+  set, get
+} from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
 
 const USER_ICON_CATEGORIES = [
@@ -167,6 +174,23 @@ export function renderSettings(container) {
       readings: getReadings(),
       favorites: getFavorites(),
       settings: getSettings(),
+      offering_history: getOfferingHistory(),
+      grievance_history: getGrievanceHistory(),
+      council_sessions: getCouncilSessions(),
+      manifest_letters: getManifestLetters(),
+      comfort_history: getComfortHistory(),
+      backstage_episodes: getBackstageEpisodes(),
+      mailbox: getMailbox(),
+      favoritism: getFavoritism(),
+      midnight_chat: getMidnightChat(),
+      card_of_day: getCardOfDay(),
+      daily_postcard: getDailyPostcard(),
+      daily_poll: getDailyPoll(),
+      daily_grievance: getDailyGrievance(),
+      daily_offering: getDailyOffering(),
+      daily_activity: getDailyActivity(),
+      daily_question: getDailyQuestion(),
+      divine_message: getDivineMessage(),
       exported_at: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -263,9 +287,31 @@ export function renderSettings(container) {
     overlay.querySelector('#import-cancel-btn').addEventListener('click', () => overlay.remove());
     overlay.querySelector('#import-confirm-btn').addEventListener('click', () => {
       try {
-        set('entities', data.entities || []);
-        set('readings', data.readings || []);
-        set('favorites', data.favorites || []);
+        const keyMap = {
+          entities: data.entities || [],
+          readings: data.readings || [],
+          favorites: data.favorites || [],
+          offering_history: data.offering_history,
+          grievance_history: data.grievance_history,
+          council_sessions: data.council_sessions,
+          manifest_letters: data.manifest_letters,
+          comfort_history: data.comfort_history,
+          backstage_episodes: data.backstage_episodes,
+          mailbox: data.mailbox,
+          favoritism: data.favoritism,
+          midnight_chat: data.midnight_chat,
+          card_of_day: data.card_of_day,
+          daily_postcard: data.daily_postcard,
+          daily_poll: data.daily_poll,
+          daily_grievance: data.daily_grievance,
+          daily_offering: data.daily_offering,
+          daily_activity: data.daily_activity,
+          daily_question: data.daily_question,
+          divine_message: data.divine_message,
+        };
+        for (const [k, v] of Object.entries(keyMap)) {
+          if (v !== undefined && v !== null) set(k, v);
+        }
         if (data.settings) set('settings', data.settings);
 
         const saved = get('entities');
