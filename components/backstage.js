@@ -241,21 +241,29 @@ export async function renderBackstage(container, sub) {
   saved.episodes = saved.episodes.filter(ep => Date.now() - ep.startTime < 24 * 60 * 60 * 1000);
 
   async function generateAndRender(bypassTime = false) {
+    // ถ้ามีของอยู่แล้ว แสดงทันทีก่อน ไม่รอ
+    if (saved.episodes.length) drawEpisodes();
+
     for (const slot of SLOTS) {
       const alreadyExists = saved.episodes.find(ep => ep.slot === slot.id);
       if (alreadyExists) continue;
       if (!bypassTime && nowMin < slot.startRange[0]) continue;
 
-      epContainer.innerHTML = `<div class="bs-generating">⏳ กำลังแอบดู...</div>`;
+      // ไม่มีของเดิม → แสดง loading / มีของเดิม → generate เงียบๆ
+      if (!saved.episodes.length) {
+        epContainer.innerHTML = `<div class="bs-generating">⏳ กำลังแอบดู...</div>`;
+      }
       try {
         const ep = await generateEpisode(slot, allEntities, cardsPool);
-        if (bypassTime) ep.startTime = Date.now() - (REVEAL_INTERVAL_MAX * 60 * 1000 * 8); // reveal ทุกข้อความทันที
+        if (bypassTime) ep.startTime = Date.now() - (REVEAL_INTERVAL_MAX * 60 * 1000 * 8);
         saved.episodes.push(ep);
         saveBackstageEpisodes(saved);
-        break; // generate ทีละตอน
+        break;
       } catch {
-        epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
-        return;
+        if (!saved.episodes.length) {
+          epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
+          return;
+        }
       }
     }
     drawEpisodes();
