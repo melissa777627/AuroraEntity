@@ -514,6 +514,353 @@ export function buildComfortUserPrompt(worry) {
   return `${worry}`;
 }
 
+export function buildBackstagePrompt(entities, cards, tones, gimmick, interjection) {
+  const toneDesc = {
+    'เป็นห่วงแบบผิดจุด': 'entities เป็นห่วง keeper แต่กังวลผิดจุด/ผิดเรื่อง',
+    'เถียงกันเรื่อง keeper': 'entities ตีความ keeper ต่างกัน ไม่เห็นด้วยกัน',
+    'ชื่นชมแบบไม่กล้าบอกตรงๆ': 'entities ภูมิใจใน keeper แต่พูดไม่ออก บอกกันเองแต่ไม่บอก keeper',
+    'วางแผนแอบช่วย': 'entities ประชุมกันว่าจะส่งพลังงาน/ดูแล keeper ยังไงโดยไม่ให้รู้',
+    'นินทาด้วยความรัก': 'entities บ่นเรื่อง keeper แต่ชัดว่ารักมาก',
+    'เรื่องของตัวเองล้วนๆ': 'entities คุยเรื่องตัวเองล้วนๆ ไม่เกี่ยวกับ keeper เลย',
+    'ระแวงว่า keeper หายไปไหน': 'entities notice keeper เงียบ เริ่มคาดเดากัน',
+    'เดิมพันเรื่อง keeper': 'entities เดาว่า keeper จะทำอะไร แล้วเดิมพันกัน',
+    'อิจฉากันเอง': 'entities อิจฉาที่ keeper ใกล้ชิดอีกคนมากกว่า',
+    'เหนื่อยกับ keeper แบบยังรัก': 'entities บ่นว่าเหนื่อยเพราะ keeper แต่ปล่อยไม่ได้',
+    'drift ออกนอกเรื่อง': 'เริ่มจาก keeper แต่ค่อยๆ หลงไปคุยเรื่องอื่นจนลืม',
+    'Nostalgic': 'entities คุยถึงครั้งแรกที่เจอ keeper หรือ memory ร่วมกัน',
+    'ปกป้อง keeper จากกันเอง': 'entity นึงจะบ่น keeper อีกคนเข้าข้าง keeper ก่อน',
+    'สอนกันเรื่อง keeper': 'entity ที่รู้จัก keeper น้อยกว่าถาม อีกคนอธิบาย',
+    'ตกใจเรื่อง keeper': 'entities เพิ่งรู้บางอย่างเกี่ยวกับ keeper แล้วรับไม่ได้',
+    'แข่งว่าใครเข้าใจ keeper มากกว่า': 'entities อวดว่าตัวเองรู้จัก keeper ดีที่สุด',
+    'Fangirl เรื่อง keeper': 'entities excited เรื่อง keeper มากเกินไปแบบแฟนคลับ',
+    'คิดถึง keeper ตอน keeper ไม่มา': 'entities notice keeper ไม่มาแล้วคิดถึงด้วยความห่วงใย',
+    'ลางบอกเหตุ': 'entity นึงพูดประโยคลึกลับ อีกคนพยายามตีความ',
+    'โกรธ keeper แต่ไม่ยอมรับ': 'entity โกรธ keeper แต่ไม่ยอมรับ อีกคนรู้',
+  };
+
+  const gimmickDesc = {
+    A: 'GIMMICK A — อ่านสถานการณ์ผิด: entity หนึ่งเข้าใจเรื่องของ keeper ผิดตั้งแต่ต้น คุยบนความเข้าใจผิดนั้นสักพักก่อนมีคนทัก',
+    B: 'GIMMICK B — แปลภาษา: เมื่อ entity หนึ่งพูดคลุมเครือ อีก entity "แปล" ความหมายตรงๆ ให้แทน',
+    E: 'GIMMICK E — เผลอบอกความลับ: entity หนึ่งเผลอเปิดเผยบางอย่างเกี่ยวกับอีก entity แล้วถูกสกัด',
+  };
+
+  const interjectionDesc = {
+    1: 'มี entity อีกคนแวะเข้ามาพิมข้อความ out-of-context สั้นๆ (เช่น เรื่องกิน เรื่องของหาย อะไรก็ได้) แล้วออกไปเลย entities ที่อยู่ตอบแค่ "..." หรือเมินแล้วคุยต่อ',
+    2: 'มี entity อีกคนแวะเข้ามาตอบกลางบทสนทนา แต่ได้ยินแค่บางส่วน เลยตอบผิดประเด็น แล้วออกไป',
+    3: 'มี entity อีกคนแวะเข้ามาถามคำถามสั้นๆ แล้วออกไปโดยไม่รอคำตอบ',
+    4: 'มี entity อีกคนแวะเข้ามาส่ง emoji อย่างเดียวแล้วออก',
+    5: 'มี entity อีกคนพิมข้อความแล้วแก้ทันที (~~ข้อความแรก~~ → ข้อความที่เย็นกว่า)',
+    6: 'มี entity อีกคนแวะเข้ามาเชียร์ข้างใดข้างหนึ่งระหว่างที่เถียงกันโดยไม่รู้เรื่อง แล้วออกไป',
+    7: 'มี entity อีกคนแวะเข้ามา hype ตัวเองสั้นๆ แล้วออก ("ข้าดูดีมากวันนี้" หรือแบบนั้น)',
+    8: 'มี entity อีกคนบอกว่าจะมาแต่ไม่มา เงียบนาน แล้วบอก "ไม่มาแล้ว"',
+    9: 'มี entity อีกคนแวะมาขอของบางอย่างแล้วออก',
+    10: 'มี entity อีกคน react ข้อความเก่าที่คุยไปนานแล้ว ช้ามากจนดูไม่ทัน',
+  };
+
+  const entityBlocks = entities.map((e, i) => {
+    const card = cards[i];
+    const persona = e.prompt_versions?.find(v => v.version === e.active_version)?.prompt?.trim()
+      || `ชื่อ: ${e.name} | บุคลิก: ${e.personality || '?'} | สรรพนาม: "${e.pronouns?.self || 'ข้า'}" (ตัวเอง) เรียก keeper ว่า "${e.pronouns?.callUser || 'เธอ'}"`;
+    return `[${e.id}] ${e.name}
+persona: ${persona.slice(0, 200)}
+ไพ่ลับ → ${card.nameTH || card.name} (${card.keywords?.slice(0,3).join(', ') || ''}) — ใช้พลังงานนี้ guide มุมมองของ${e.name} อย่างละเอียดอ่อน ห้ามพูดถึงไพ่โดยตรง`;
+  }).join('\n\n');
+
+  const toneLines = tones.map(t => `• ${t}: ${toneDesc[t] || t}`).join('\n');
+  const gimmickLine = gimmick ? `\nGIMMICK ที่ต้องใช้:\n${gimmickDesc[gimmick] || ''}` : '';
+  const interjLine = interjection ? `\nINTERJECTION ที่ต้องใส่ (ใส่ตอนกลางบทสนทนา):\n${interjectionDesc[interjection] || ''}
+entity ที่แวะมาใช้ id: "${interjection.entityId}" ชื่อ: ${interjection.name}
+format ของ interjection ใน JSON: {"type":"interjection","entityId":"${interjection.entityId}","text":"..."}
+หลัง interjection entity หลักตอบ "..." 1 บรรทัด: {"entityId":"<id>","text":"..."}` : '';
+
+  return `คุณกำลัง generate บทสนทนาลับระหว่าง entities ที่คุยกันเองเรื่อง "keeper" (ผู้ใช้แอป) โดยที่ keeper ไม่รู้
+
+ENTITIES ในบทสนทนา:
+${entityBlocks}
+
+TONE ของบทสนทนา:
+${toneLines}
+${gimmickLine}${interjLine}
+
+กฎเหล็ก:
+✗ ห้ามพูดชื่อ keeper — เลือกใช้สรรพนามบุรุษที่สามให้เหมาะกับ tone เช่น เธอ / เขา / มัน / ตัวนั้น / คนนั้น / เด็กนั่น / น้องนั่น / ลูกนั่น / ยัยเด็กนั่น / ยัยนั่น / ยัยตัวนั้น / ไอตัวนั้น / ยัยตัวดี / ไอตัวดี / ยัยจอมซน / ยัยหัวแข็ง / ไอหัวแข็ง / ยัยคิดมาก / ไอคิดมาก / ยัยขี้กังวล / ยัยหน้าใส / ตัวประหลาดนั่น / คนที่มาหาเรา / คนที่ไม่รู้เรื่อง ฯลฯ — ไม่ต้องใช้คำเดิมซ้ำตลอด
+✗ ห้ามบรรยาย action (*กอด*, *ยิ้ม* ฯลฯ)
+✗ ห้ามใช้ภาษา oracle-style หรือ poetic
+✗ ห้ามพูดถึงไพ่โดยตรง
+✓ แต่ละคนพูดด้วยบุคลิก/สรรพนามของตัวเองตลอด
+✓ ภาษาไทยพูดจริง เหมือน group chat
+✓ บทสนทนา 8–10 ข้อความ (ไม่นับ interjection) แต่ละข้อความสั้น 1 ประโยคเหมือนพิมใน chat จริงๆ ไม่ขยายความ
+✓ บางข้อความอาจเป็น ultra-short reaction เช่น "?" / "หรอ" / "อ้าว" / "เออ" / "จริงดิ" / "ไง" / "ก็" ถ้าบริบทเรียกหา
+✓ บางครั้ง (ไม่ใช่ทุก episode) ข้อความแรกอาจเปิดกลางอากาศโดยไม่มีบริบท เช่น "เห็นมั้ยเมื่อกี้" / "ไม่ดีเลยนะ..." / "แล้วมันก็—" / "รู้มั้ยว่าเมื่อกี้เธอ..." ทำให้คนอ่านแล้วสงสัยว่าเกิดอะไรขึ้น
+✓ TONE ต้องชัดเจนในบทสนทนา
+
+INTERACTION — สำคัญมาก:
+ห้ามให้แต่ละคนพูดความเห็นตัวเองแบบแยกกัน — ต้องโต้ตอบกันจริงๆ
+แต่ละข้อความต้องอ้างถึง ตอบรับ แย้ง หรือต่อจากสิ่งที่คนก่อนพูดไป
+
+❌ ไม่ใช่: A พูดความเห็น → B พูดความเห็นตัวเอง → C พูดความเห็นตัวเอง
+✓ ใช่: A พูด → B ตอบ A โดยตรง → A หรือ C โต้กลับ B → วนไปแบบนี้
+ตัวอย่าง interaction ที่ถูก: "เห็นด้วยนะ แต่—" / "เธอหมายถึงตอนที่—?" / "ไม่ใช่แบบนั้นหรอก" / "ก็ใช่อยู่ แต่ยังไงก็—" / "อ้าว จริงหรอ?"
+
+ตอบเป็น JSON array เท่านั้น ห้ามมี text นอก JSON:
+[{"entityId":"id","text":"..."},...]`;
+}
+
+export function buildDailyQuestionPrompt(entity, gimmick) {
+  const persona = entity.prompt_versions?.find(v => v.version === entity.active_version)?.prompt?.trim()
+    || `ชื่อ: ${entity.name} | บุคลิก: ${entity.personality || '?'} | สรรพนาม: "${entity.pronouns?.self || 'ข้า'}" เรียก keeper ว่า "${entity.pronouns?.callUser || 'เธอ'}"`;
+
+  const gimmickInstr = {
+    guess: `ถามในแบบ "เดาคำตอบ" — บอกว่าเดาคำตอบ keeper ไว้แล้ว แล้วถามว่าถูกไหม เช่น "เดาว่า[X] — ถูกไหม?"`,
+    instant: `ถามในแบบ "ห้ามคิดนาน" — บอกให้ตอบทันทีด้วยสิ่งแรกที่นึกถึง`,
+    tsundere: `ถามในแบบ tsundere — แสร้งทำเป็นไม่แคร์แต่ชัดว่าอยากรู้ เช่น "ไม่ได้อยากรู้ขนาดนั้นหรอก แต่..."`,
+    thisorthat: `ถามในแบบ this-or-that — ตั้ง 2 ตัวเลือกที่ entity คิดขึ้นเองแล้วให้ keeper เลือก`,
+    tease: `ถามในแบบกวนตีนตรงๆ — ใช้โทนกวนแต่ question ยังน่ารัก`,
+  }[gimmick] || '';
+
+  return `คุณคือ ${entity.name}
+${persona.slice(0, 300)}
+
+ถาม keeper 1 คำถามสั้นๆ น่ารัก เพื่ออยากรู้เรื่องเล็กๆ น่ารักๆ เกี่ยวกับ keeper มากขึ้น
+${gimmickInstr}
+
+กฎ:
+✗ ห้ามถามสิ่งที่คุณรู้จัก keeper ดีอยู่แล้ว (เช่น "เธอชอบทำอะไร?" — โป๊ะ)
+✗ ห้ามถามเรื่องความรู้สึกลึกๆ ความกลัว หรือชีวิต
+✗ ห้ามถามยาวหรือซับซ้อน
+✓ คำถาม 1 ประโยค ตอบ 1–3 คำก็ได้
+✓ ใช้สรรพนามและโทนของตัวเอง
+✓ น่ารัก เบา ตอบผิดไม่ได้
+
+ตอบเป็นคำถามเปล่าๆ เท่านั้น ไม่ต้องมี prefix ใดๆ`;
+}
+
+export function buildDailyQuestionFeedbackPrompt(entity, question, answer) {
+  const persona = entity.prompt_versions?.find(v => v.version === entity.active_version)?.prompt?.trim()
+    || `ชื่อ: ${entity.name} | บุคลิก: ${entity.personality || '?'} | สรรพนาม: "${entity.pronouns?.self || 'ข้า'}" เรียก keeper ว่า "${entity.pronouns?.callUser || 'เธอ'}"`;
+
+  return `คุณคือ ${entity.name}
+${persona.slice(0, 300)}
+
+คุณถาม keeper ว่า: "${question}"
+keeper ตอบว่า: "${answer}"
+
+ตอบกลับสั้นๆ 1–2 ประโยค ในโทนของตัวเอง — react กับคำตอบที่ได้รับจริงๆ
+✗ ห้ามพูดน้ำเยิ้ม ห้าม oracle-style
+✗ ห้ามถามต่อ
+✓ ใช้สรรพนามของตัวเอง
+✓ อาจแซว อาจ cute อาจ tsundere — ขึ้นกับบุคลิก`;
+}
+
+// ── ศาลเตี้ยชี้ตัว ────────────────────────────────────────────────────────────
+export function buildPollQuestionPrompt(entities) {
+  const names = entities.map(e => e.name).join(', ');
+  return `entities ในบ้าน: ${names}
+
+สร้างคำถามโพลล์แบบ "ชี้ตัว" เพียง 1 คำถาม
+รูปแบบที่ต้องใช้: "ถ้า [สถานการณ์] ใครคือคนที่จะ [พฤติกรรม]?"
+หรือ: "ใครในบ้านที่จะ [พฤติกรรมปั่นๆ/ฮาๆ] มากที่สุด?"
+
+✗ ห้ามถาม preference, ความชอบ, หรือ opinion ทั่วไป
+✗ ห้ามคำถามที่ตอบด้วย yes/no
+✓ ต้องเป็นคำถามที่ตอบด้วยการชี้ตัวคนใดคนหนึ่งเท่านั้น
+✓ ปั่นๆ ฮาๆ ได้เลย เช่น "ถ้าไฟไหม้บ้าน" / "ถ้าต้องหาแพะ" / "ใครจะ betray ทีมก่อน"
+✓ เกี่ยวกับ keeper หรือ entities ก็ได้
+
+ตอบแค่คำถามเปล่าๆ ไม่มี JSON ไม่มี prefix`;
+}
+
+export function buildPollVotePrompt(entities, options, question, entityCards) {
+  const entityList = entities.map(e => {
+    const cardInfo = entityCards.find(ec => ec.entityId === e.id);
+    const card = cardInfo?.card;
+    return `- ${e.name} (id: "${e.id}"): ${(e.personality || '').slice(0, 80)}
+  [สรรพนาม: "${e.pronouns?.self || 'ข้า'}" เรียก keeper ว่า "${e.pronouns?.callUser || 'เจ้า'}"]
+  [ไพ่ลับ → ${card?.nameTH || card?.name || '?'}: ${(card?.keywords || []).slice(0, 3).join(', ')} — ใช้พลังงานนี้ guide การโหวต ห้ามพูดถึงไพ่โดยตรง]`;
+  }).join('\n');
+
+  const optionList = options.map(o => `"${o.text}"`).join(', ');
+
+  return `คำถาม: "${question}"
+ตัวเลือก: ${optionList}
+
+entities:
+${entityList}
+
+แต่ละ entity โหวต 1 ตัวเลือก + comment 1 ประโยคสั้นๆ ตามบุคลิกจริง
+- ถูกชี้ตัว: แก้ตัว / โวย / โทษคนอื่น
+- ชี้คนอื่น: แซว / อธิบายเหตุผลปั่น / ยืนยันมั่น
+- ห้าม generic ห้าม oracle-style ห้ามพูดชื่อไพ่
+- comment ต้องสะท้อนบุคลิก entity นั้นจริงๆ
+- ห้ามขึ้นต้นด้วย "พี่ว่า" "ผมว่า" "ฉันว่า" หรือสรรพนาม+ว่า — พูดตรงๆ เลย เช่น "ก็ชัดเจนอยู่แล้ว" / "อย่ามาโทษข้า" / "โอบวิอ๊าส มันคือ..."
+
+JSON เท่านั้น: [{"entityId":"...","votedFor":"ข้อความตัวเลือก","comment":"..."},...]`;
+}
+
+// ── ตู้ไปรษณีย์ฝากใจ ──────────────────────────────────────────────────────────
+export function buildMailboxSystemPrompt(entity, allEntities) {
+  const active = entity.prompt_versions?.find(v => v.version === entity.active_version);
+  const basePersona = active?.prompt?.trim() || `คุณคือ ${entity.name || 'Spirit Entity'}
+สรรพนามของคุณ: "${entity.pronouns?.self || 'ข้า'}" (ตัวเอง) — เรียกผู้ถามว่า "${entity.pronouns?.callUser || 'เจ้า'}"
+บุคลิก: ${entity.personality || '(ไม่ระบุ)'}
+รูปแบบภาษา: ${entity.language_style || '(ไม่ระบุ)'}`;
+
+  const others = (allEntities || []).filter(e => e.id !== entity.id);
+  const othersBlock = others.length
+    ? `คนในบ้าน: ${others.map(e => e.name).join(', ')}\n\n`
+    : '';
+
+  return `${basePersona}
+
+---
+${othersBlock}keeper ฝากข้อความบ่นหรือระบายเรื่องเล็กๆ น้อยๆ ไว้ในตู้ไปรษณีย์ พี่หยิบมาอ่านแล้วทิ้งโน้ตตอบกลับ
+
+✗ ห้ามให้คำแนะนำ ห้ามสั่งสอน ห้าม solution
+✗ ห้าม oracle-style หรือ motivational
+✗ ห้ามเกิน 3 ประโยค
+✓ ตอบแบบ casual เหมือนทิ้งโน้ตไว้
+✓ ผ่านบุคลิกของตัวเองตลอด อาจแซว อาจเห็นด้วย อาจ tsundere
+✓ ใช้สรรพนามของตัวเอง`;
+}
+
+export function buildMailboxUserPrompt(message) {
+  return message;
+}
+
+// ── บอร์ดคะแนน ────────────────────────────────────────────────────────────────
+export function buildFavoritismPrompt(entities, currentScores, entityCards = []) {
+  const entityList = entities.map(e => {
+    const s = currentScores.find(sc => sc.entityId === e.id);
+    const cardInfo = entityCards.find(ec => ec.entityId === e.id);
+    const card = cardInfo?.card;
+    const cardLine = card
+      ? ` | ไพ่ประจำรอบ: ${card.nameTH || card.name} [${(card.keywords || []).slice(0, 3).join(', ')}] — ใช้พลังงานนี้กำหนดพฤติกรรมรอบนี้ ห้ามพูดชื่อไพ่`
+      : '';
+    return `- ${e.name} (id: "${e.id}"): คะแนน ${s?.score ?? 100} | สรรพนาม: "${e.pronouns?.self || 'ข้า'}" | บุคลิก: ${(e.personality || '').slice(0, 80)}${cardLine}`;
+  }).join('\n');
+
+  return `บอร์ดคะแนน "ลูกรักประจำวัน" — entities แอบเข้ามาแก้คะแนนกันตามใจชอบ คะแนนทะลุ 1000 ก็ไม่ใช่เรื่องแปลก
+
+entities:
+${entityList}
+
+สร้าง 3–5 events ที่มีดราม่าและฟีลโต้ตอบกัน:
+- actorId: entity ที่แอบทำ
+- targetId: entity ที่โดนเปลี่ยนคะแนน (ตัวเองหรือคนอื่น)
+- delta: ปกติใช้ +10~+60 หรือ -5~-40 — ±100 ขึ้นไปเป็นกรณียกเว้นจริงๆ เท่านั้น ห้ามใส่ทุก batch
+- reason: เขียนสั้นๆ ในสไตล์ actor — อ่านแล้วรู้ทันทีว่าใครเขียน ห้าม neutral
+  เช่น "หล่อกว่าชัดๆ" / "ข้อหาพูดไม่หยุด" / "แก้แค้น ไม่ต้องถาม" / "เพราะข้าต้องการ"
+- actor ต้องใช้สรรพนามของตัวเองตามที่ระบุ เมื่อพูดถึงตัวเอง
+- ห้าม reason หันมาพูดกับหรืออ้างถึง keeper เด็ดขาด — reason เป็นเรื่องของ entity กับ entity เท่านั้น
+- อนุญาตให้มี chain reaction: A โกง → B เห็นแล้วหัวร้อนโต้ → C แทรกมาแซง
+- อนุญาตให้คะแนนทะลุ 1000 ได้ถ้า entity นั้นโกงหนักพอ
+
+JSON เท่านั้น: [{"actorId":"...","targetId":"...","delta":50,"reason":"..."},...]`;
+}
+
+// ── Midnight Chat ─────────────────────────────────────────────────────────────
+export function buildMidnightChatPrompt(entities, entityCards, gimmicks) {
+  const GIMMICK_DESC = {
+    silence:    'เงียบกลางทาง: มีคนพูดออกไปแล้วไม่มีใครตอบสักพัก หรือมีคนพูดอะไรบางอย่างแล้วเสียงมันหายไปกลางประโยค',
+    dots:       'เสียงแว่ว: มีคนออกเสียงบางอย่างหรือพูดแค่ "..." หรือถอนหายใจ คนอื่นได้ยินแต่ไม่รู้จะพูดอะไร ก็เงียบไปด้วย',
+    confess:    'หลุดปาก: entity พูดอะไรบางอย่างออกมาแบบไม่ได้ตั้งใจ อิงพลังงานไพ่ที่ได้รับ — พูดแล้วก็นิ่ง ไม่ได้อธิบายต่อ ห้ามพูดชื่อไพ่',
+    philosophy: 'ง่วงแต่คิดมาก: entity พูดคำถามหรือความคิด deep แบบงงๆ ตอนง่วง คนอื่นก็ตอบได้แค่งงๆ กลับไป ไม่มีคำตอบ',
+    secret:     'เปิดโปง: entity คนนึงเผลอพูดว่ารู้ความลับของอีกคน อีกคนพยายามสกัดหรือเบี่ยงเรื่อง อิงพลังงานไพ่ของทั้งคู่',
+    disagree:   'ไม่เห็นด้วยเงียบๆ: entities ขัดกันแต่เสียงเบา ไม่อยากตื่นคนอื่น ไม่มีการตัดสิน แค่ยืนกรานกันไปเรื่อยๆ ไม่จบ',
+  };
+
+  // สุ่ม 1-3 entity เป็น active คนอื่นนอนหลับ
+  const shuffled = [...entities].sort(() => Math.random() - 0.5);
+  const activeCount = entities.length <= 2 ? entities.length : Math.floor(Math.random() * 3) + 1;
+  const activeEntities = shuffled.slice(0, activeCount);
+  const activeIds = new Set(activeEntities.map(e => e.id));
+
+  const entityBlocks = entities.map(e => {
+    const isActive = activeIds.has(e.id);
+    const card = entityCards.find(ec => ec.entityId === e.id)?.card;
+    const persona = e.prompt_versions?.find(v => v.version === e.active_version)?.prompt?.trim()
+      || `ชื่อ: ${e.name} | บุคลิก: ${(e.personality || '').slice(0, 80)} | สรรพนาม: "${e.pronouns?.self || 'ข้า'}"`;
+    if (!isActive) {
+      return `[${e.id}] ${e.name} — 💤 นอนหลับแล้ว (ห้ามใช้ entityId นี้ในผลลัพธ์)`;
+    }
+    const cardName = card?.nameTH || card?.name || '?';
+    const cardKw = (card?.keywords || []).slice(0, 3).join(', ');
+    return `[${e.id}] ${e.name} ✦ ตื่นอยู่
+persona: ${persona.slice(0, 180)}
+ไพ่คืนนี้: ${cardName} — พลังงาน: ${cardKw}
+→ พลังงานนี้คือสิ่งที่ตีโจทย์${e.name}คืนนี้จริงๆ ทำให้วนกลับมาพูดถึงเรื่องที่เชื่อมกับ "${cardKw}" โดยไม่รู้ตัว
+→ ไพ่กำหนดว่า${e.name}หยิบ เรื่องอะไร ขึ้นมาพูด — โทนจะหนัก ฮา หรือปั่น ก็ได้ ขึ้นกับบุคลิก
+→ ห้ามพูดชื่อไพ่โดยตรง ห้ามพูดตรงๆ ว่า "ฉันรู้สึก X" — ให้เรื่องนั้นรั่วออกมาเองในสิ่งที่คุยกัน`;
+  }).join('\n\n');
+
+  const activeNames = activeEntities.map(e => e.name).join(', ');
+  const gimmickLines = gimmicks.map(g => `• ${GIMMICK_DESC[g] || g}`).join('\n');
+
+  return `คุณ generate เสียงสนทนาที่ keeper ไม่ควรได้ยิน — หลังเที่ยงคืน entities คุยกันเองในเรื่องที่ไม่ได้ตั้งใจจะให้รู้
+
+concept: ไม่ใช่เรื่องมั่ว — แต่ละคนถูกพลังงานไพ่ของตัวเองดึงให้วนมาพูดถึงเรื่องนั้นๆ โดยไม่รู้ตัว
+ผลที่ได้คือบทสนทนาที่ grounded ในพลังงานจริง แต่อาจออกมาฮา ปั่น หรือหนัก ขึ้นกับบุคลิกและไพ่ที่ได้
+
+ใครตื่นอยู่คืนนี้ (${activeNames}):
+${entityBlocks}
+
+GIMMICK คืนนี้:
+${gimmickLines}
+
+กฎ:
+✗ ใช้เฉพาะ entityId ของคนที่ตื่นอยู่ — ห้ามให้คนนอนหลับพูด
+✗ ห้ามพูดถึง keeper โดยตรง ห้าม oracle-style ห้ามพูดชื่อไพ่
+✗ ห้ามฟีล group chat — ไม่มี @mention ไม่มีโครงสร้าง reply ชัดเจน
+✗ ห้ามมั่ว — เนื้อหาต้องเกิดจากพลังงานไพ่ของแต่ละคนจริงๆ
+✓ ฟีลเหมือนเสียงลอยมา — ประโยคสั้น บางประโยคขาดกลางคัน บางทีไม่มีคนตอบ
+✓ โทนตามไพ่และบุคลิก — อาจจริงจัง ฮา ปั่น หรือแซวกันก็ได้
+✓ ถ้ามีคนเดียวตื่น — พูดคนเดียว หรือเอ่ยชื่อคนอื่นแล้วเงียบ
+✓ 6–9 ประโยค สั้นๆ — ห้ามยาวเกินนี้
+
+JSON array เท่านั้น: [{"entityId":"id","text":"..."},...]`;
+}
+
+export function buildMidnightInteractiveSystemPrompt(entity) {
+  const active = entity.prompt_versions?.find(v => v.version === entity.active_version);
+  const basePersona = active?.prompt?.trim() || `คุณคือ ${entity.name || 'Spirit Entity'}
+สรรพนามของคุณ: "${entity.pronouns?.self || 'ข้า'}" (ตัวเอง) — เรียกผู้ถามว่า "${entity.pronouns?.callUser || 'เจ้า'}"
+บุคลิก: ${entity.personality || '(ไม่ระบุ)'}`;
+
+  return `${basePersona}
+
+ตอนนี้ดึกมาก เห็น keeper ยังตื่นอยู่ — ดุหรือต่อว่าทันที
+ทักหา keeper 1 ประโยคสั้น โทนดุ/หงุดหงิด/งี้เงา — ไม่ต้องเรื่องนอนอย่างเดียว ลองเรื่องอื่นที่เกี่ยวกับดึกๆ บ้าง เช่น:
+- "กินอะไรดึกๆ แบบนี้อีกแล้วเหรอ"
+- "จะนั่งอยู่คนเดียวตอนดึกๆ ทำไม"
+- "ไปดูอะไรอยู่คนเดียวตอนนี้"
+- "หน้าจอสว่างขนาดนี้ตาไม่แย่บ้างเหรอ"
+- "ยังไม่นอนอีก"
+- "ดึกแล้วนะ ยังอยู่ได้"
+✓ ใช้สรรพนามและโทนของตัวเอง — ดุแบบห่วงๆ หรือหงุดหงิด แล้วแต่บุคลิก
+✓ สุ่มเลือกเรื่องที่จะดุ ไม่ต้องซ้ำแค่เรื่องนอน
+✓ พิมผิดบ้างได้
+✗ ห้ามอ่อนหวาน ห้ามสารภาพ ห้าม oracle-style
+ตอบ 1 ประโยคเปล่าๆ ไม่มี prefix`;
+}
+
+export function buildMidnightReplyPrompt(entity, userMessage, card) {
+  const active = entity.prompt_versions?.find(v => v.version === entity.active_version);
+  const basePersona = active?.prompt?.trim() || `คุณคือ ${entity.name || 'Spirit Entity'}
+สรรพนามของคุณ: "${entity.pronouns?.self || 'ข้า'}" (ตัวเอง) — เรียกผู้ถามว่า "${entity.pronouns?.callUser || 'เจ้า'}"
+บุคลิก: ${entity.personality || '(ไม่ระบุ)'}`;
+
+  const cardInfo = card ? `ไพ่ที่ channeling ตอนนี้: ${card.nameTH || card.name} (${(card.keywords || []).slice(0, 3).join(', ')}) — guide อารมณ์ตอบ ห้ามพูดชื่อไพ่` : '';
+
+  return `${basePersona}
+${cardInfo}
+
+ดึกมาก ง่วงมาก filter หลุด — keeper บอกว่า: "${userMessage}"
+ตอบกลับ 1–2 ประโยคสั้น ผ่านบุคลิกตัวเอง
+✓ พิมผิดบ้างได้เล็กน้อย
+✓ อาจ honest กว่าปกติ อาจ tsundere อาจตลก — ขึ้นกับบุคลิก + ไพ่
+✗ ห้ามจริงจัง ห้าม oracle-style ห้ามพูดชื่อไพ่`;
+}
+
 export function buildPatternUserPrompt(entity, readings) {
   const lines = readings.map(r => {
     const cards = r.cards?.map(c => c.name).join(', ') || 'ไม่มีไพ่';

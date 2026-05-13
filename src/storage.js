@@ -140,10 +140,49 @@ export function addComfortToHistory(entry) {
 }
 
 export function hasUnreadLounge() {
-  const p = getDailyPostcard();
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-  return !p || p.date !== today;
+  const p = getDailyPostcard();
+  if (!p || p.date !== today) return true;
+  if (hasUnreadMailboxReply()) return true;
+  const fav = getFavoritism();
+  if (fav?.events?.length && fav.lastViewed) {
+    if (fav.events.some(e => e.timestamp > fav.lastViewed)) return true;
+  }
+  return false;
 }
+
+export function getBackstageEpisodes() { return get('backstage_episodes') || null; }
+export function saveBackstageEpisodes(data) { set('backstage_episodes', data); }
+
+export function getDailyQuestion() { return get('daily_question') || null; }
+export function saveDailyQuestion(data) { set('daily_question', data); }
+
+// ── Poll ──────────────────────────────────────────────────────────────────────
+export function getDailyPoll() { return get('daily_poll') || null; }
+export function saveDailyPoll(data) { set('daily_poll', data); }
+
+// ── Mailbox ───────────────────────────────────────────────────────────────────
+export function getMailbox() { return get('mailbox') || []; }
+export function saveMailbox(arr) { set('mailbox', arr.slice(-30)); }
+export function addMailboxLetter(letter) {
+  const arr = getMailbox();
+  arr.push(letter);
+  saveMailbox(arr);
+}
+export function updateMailboxLetter(id, patch) {
+  saveMailbox(getMailbox().map(l => l.id === id ? { ...l, ...patch } : l));
+}
+export function hasUnreadMailboxReply() {
+  return getMailbox().some(l => l.reply && Date.now() >= l.replyUnlockAt && !l.read);
+}
+
+// ── Favoritism ────────────────────────────────────────────────────────────────
+export function getFavoritism() { return get('favoritism') || null; }
+export function saveFavoritism(data) { set('favoritism', data); }
+
+// ── Midnight Chat ─────────────────────────────────────────────────────────────
+export function getMidnightChat() { return get('midnight_chat') || null; }
+export function saveMidnightChat(data) { set('midnight_chat', data); }
 
 export function getFavorites() { return get('favorites') || []; }
 export function saveFavorite(fav) {

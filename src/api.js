@@ -1,5 +1,5 @@
 import { getSettings } from './storage.js';
-import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt } from './prompts.js';
+import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -405,6 +405,58 @@ export async function callComfort(entity, allEntities, worry, onChunk) {
   return full;
 }
 
+export async function callBackstage(entities, cards, tones, gimmick, interjection) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildBackstagePrompt(entities, cards, tones, gimmick, interjection) }] }],
+      generationConfig: { temperature: 0.92, maxOutputTokens: 1500, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const m = clean.match(/\[[\s\S]*\]/);
+  if (m) clean = m[0];
+  const parsed = (() => { try { return JSON.parse(clean); } catch { return []; } })();
+  if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('API คืน messages ว่าง — ลองใหม่');
+  return parsed;
+}
+
+export async function callDailyQuestion(entity, gimmick) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildDailyQuestionPrompt(entity, gimmick) }] }],
+      generationConfig: { temperature: 0.88, maxOutputTokens: 120, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
+export async function callDailyQuestionFeedback(entity, question, answer) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildDailyQuestionFeedbackPrompt(entity, question, answer) }] }],
+      generationConfig: { temperature: 0.88, maxOutputTokens: 200, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
 export async function callPatternReading(entity, readings) {
   const { key, model } = cfg();
 
@@ -429,4 +481,156 @@ export async function callPatternReading(entity, readings) {
   const m = clean.match(/\{[\s\S]*\}/);
   if (m) clean = m[0];
   try { return JSON.parse(clean); } catch { return { summary: text, gimmick: '' }; }
+}
+
+// ── ศาลเตี้ยชี้ตัว ────────────────────────────────────────────────────────────
+export async function callPollQuestion(entities) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildPollQuestionPrompt(entities) }] }],
+      generationConfig: { temperature: 0.92, maxOutputTokens: 100, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
+export async function callPollEntityVotes(entities, options, question, entityCards) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildPollVotePrompt(entities, options, question, entityCards) }] }],
+      generationConfig: { temperature: 0.90, maxOutputTokens: 800, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const m = clean.match(/\[[\s\S]*\]/);
+  if (m) clean = m[0];
+  const parsed = (() => { try { return JSON.parse(clean); } catch { return []; } })();
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error('votes ว่าง — ลองใหม่');
+  return parsed;
+}
+
+// ── ตู้ไปรษณีย์ฝากใจ ──────────────────────────────────────────────────────────
+export async function callMailboxReply(entity, message, allEntities) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: buildMailboxSystemPrompt(entity, allEntities) }] },
+      contents: [{ role: 'user', parts: [{ text: buildMailboxUserPrompt(message) }] }],
+      generationConfig: { temperature: 0.85, maxOutputTokens: 350, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
+// ── บอร์ดคะแนน ────────────────────────────────────────────────────────────────
+export async function callFavoritism(entities, currentScores, entityCards = []) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildFavoritismPrompt(entities, currentScores, entityCards) }] }],
+      generationConfig: { temperature: 0.95, maxOutputTokens: 600, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const mx = clean.match(/\[[\s\S]*\]/);
+  if (mx) clean = mx[0];
+  const parsed = (() => { try { return JSON.parse(clean); } catch { return []; } })();
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error('favoritism events ว่าง');
+  return parsed;
+}
+
+// ── Midnight Chat ─────────────────────────────────────────────────────────────
+export async function callMidnightChat(entities, entityCards, gimmicks) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildMidnightChatPrompt(entities, entityCards, gimmicks) }] }],
+      generationConfig: { temperature: 0.95, maxOutputTokens: 2500, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 1024 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const blockReason = data.promptFeedback?.blockReason;
+  if (blockReason) throw new Error(`Safety block: ${blockReason}`);
+  const finishReason = data.candidates?.[0]?.finishReason;
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '').trim();
+  console.log('[midnight] finishReason:', finishReason, '| text length:', text.length, '| preview:', text.slice(0, 120));
+  if (!text) throw new Error(`No content — finishReason: ${finishReason || 'unknown'}`);
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  // extract array first — model sometimes appends extra text after closing ]
+  const arrMatch = clean.match(/\[[\s\S]*\]/);
+  if (arrMatch) clean = arrMatch[0];
+  let parsed = (() => { try { return JSON.parse(clean); } catch (e) { console.error('[midnight] parse err:', e.message, '| raw:', text.slice(0, 400)); return null; } })();
+  if (parsed && !Array.isArray(parsed)) {
+    parsed = parsed.messages || parsed.chat || parsed.conversation || Object.values(parsed).find(v => Array.isArray(v)) || null;
+  }
+  if ((!Array.isArray(parsed) || !parsed.length) && finishReason === 'MAX_TOKENS') {
+    const rescued = [];
+    const re = /\{\s*"entityId"\s*:\s*"([^"]+)"\s*,\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g;
+    let m;
+    while ((m = re.exec(clean)) !== null) {
+      rescued.push({ entityId: m[1], text: m[2].replace(/\\n/g, '\n').replace(/\\"/g, '"') });
+    }
+    if (rescued.length >= 3) return rescued;
+  }
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error(`JSON empty/invalid — finishReason: ${finishReason || 'ok'}`);
+  return parsed;
+}
+
+export async function callMidnightInteractivePrompt(entity) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: buildMidnightInteractiveSystemPrompt(entity) }] },
+      contents: [{ role: 'user', parts: [{ text: 'ทักหา keeper ตอนดึก' }] }],
+      generationConfig: { temperature: 0.95, maxOutputTokens: 80, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const iparts = data.candidates?.[0]?.content?.parts || [];
+  return (iparts.find(p => !p.thought)?.text || iparts[0]?.text || '').trim();
+}
+
+export async function callMidnightReply(entity, userMessage, card) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildMidnightReplyPrompt(entity, userMessage, card) }] }],
+      generationConfig: { temperature: 0.95, maxOutputTokens: 150, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const rparts = data.candidates?.[0]?.content?.parts || [];
+  return (rparts.find(p => !p.thought)?.text || rparts[0]?.text || '').trim();
 }
