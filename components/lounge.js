@@ -1,5 +1,5 @@
-import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism } from '../src/storage.js';
-import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callMailboxReply, callFavoritism } from '../src/api.js';
+import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism, hasUnreadPostcard, hasUnreadMailboxReply, hasNewFavoritismEvents } from '../src/storage.js';
+import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callPollReaction, callMailboxReply, callFavoritism } from '../src/api.js';
 
 const LOUNGE_MENUS = [
   { sub: 'postcard',   icon: '📮', name: 'โปสการ์ดวันนี้',           desc: 'วันนี้พี่อยากส่งอะไรมาให้ — เปิดดูซิ' },
@@ -32,6 +32,11 @@ export function renderLounge(container, sub) {
 }
 
 function renderLoungeLanding(container) {
+  const dots = new Set();
+  if (hasUnreadPostcard()) dots.add('postcard');
+  if (hasUnreadMailboxReply()) dots.add('mailbox');
+  if (hasNewFavoritismEvents()) dots.add('favoritism');
+
   container.innerHTML = `
     <div class="page">
       <div class="page-header">
@@ -40,7 +45,7 @@ function renderLoungeLanding(container) {
       </div>
       <div class="lounge-menu-grid">
         ${LOUNGE_MENUS.map(m => `
-          <div class="lounge-menu-card">
+          <div class="lounge-menu-card${dots.has(m.sub) ? ' has-dot' : ''}">
             <div class="lounge-menu-card-icon">${m.icon}</div>
             <div class="lounge-menu-card-body">
               <div class="lounge-menu-card-name">${m.name}</div>
@@ -761,6 +766,16 @@ function renderPollUI(container, poll, entities) {
 
     const userVotedEntity = entities.find(x => x.name === poll.userVote);
     const userVotedIcon = poll.userVote === 'คีป' ? keeperIcon : esc(userVotedEntity?.icon || '');
+    const votedForSelf = poll.userVote === 'คีป';
+
+    const reactionHtml = (!votedForSelf && userVotedEntity)
+      ? poll.reaction
+        ? `<div class="poll-reaction">
+            <span class="poll-reaction-who">${esc(userVotedEntity.icon || '🌙')} ${esc(poll.userVote)}:</span>
+            <span class="poll-reaction-text">"${esc(poll.reaction)}"</span>
+           </div>`
+        : `<div class="poll-reaction poll-reaction-loading" id="poll-reaction-area"><span class="grievance-analyzing">...</span></div>`
+      : '';
 
     container.innerHTML = `
       <div class="lounge-section-title">⚖️ ศาลเตี้ยชี้ตัว</div>
@@ -772,7 +787,31 @@ function renderPollUI(container, poll, entities) {
           <div class="poll-results">${resultsHtml}</div>
         </details>
         <div class="poll-user-voted">คุณโหวต ${userVotedIcon} ${esc(poll.userVote)}</div>
+        ${reactionHtml}
+        <button class="btn btn-ghost" id="poll-reset-btn" style="margin-top:12px;font-size:0.75rem;opacity:0.5">↺ รีเซ็ต (ทดสอบ)</button>
       </div>`;
+
+    if (!votedForSelf && userVotedEntity && !poll.reaction) {
+      const reactionEl = container.querySelector('#poll-reaction-area');
+      (async () => {
+        try {
+          let full = '';
+          await callPollReaction(userVotedEntity, entities, poll.question, (_, accumulated) => {
+            full = accumulated;
+            if (reactionEl) reactionEl.innerHTML = `<span class="poll-reaction-who">${esc(userVotedEntity.icon || '🌙')} ${esc(poll.userVote)}:</span> <span class="poll-reaction-text">"${esc(full)}"</span>`;
+          });
+          saveDailyPoll({ ...poll, reaction: full });
+          reactionEl?.classList.remove('poll-reaction-loading');
+        } catch {
+          if (reactionEl) reactionEl.remove();
+        }
+      })();
+    }
+
+    container.querySelector('#poll-reset-btn')?.addEventListener('click', () => {
+      saveDailyPoll(null);
+      renderPollSection(container, entities, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }));
+    });
 
     return;
   }

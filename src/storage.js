@@ -139,20 +139,38 @@ export function addComfortToHistory(entry) {
   update('comfort_history', arr => [...(arr || []).slice(-9), entry]);
 }
 
-export function hasUnreadLounge() {
+export function hasUnreadPostcard() {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
   const p = getDailyPostcard();
-  if (!p || p.date !== today) return true;
-  if (hasUnreadMailboxReply()) return true;
+  return !p || p.date !== today;
+}
+export function hasNewFavoritismEvents() {
   const fav = getFavoritism();
-  if (fav?.events?.length && fav.lastViewed) {
-    if (fav.events.some(e => e.timestamp > fav.lastViewed)) return true;
-  }
+  if (!fav?.events?.length) return false;
+  return fav.events.some(e => e.timestamp > (fav.lastViewed || 0));
+}
+export function hasUnreadLounge() {
+  if (hasUnreadPostcard()) return true;
+  if (hasUnreadMailboxReply()) return true;
+  if (hasNewFavoritismEvents()) return true;
   return false;
 }
 
 export function getBackstageEpisodes() { return get('backstage_episodes') || null; }
 export function saveBackstageEpisodes(data) { set('backstage_episodes', data); }
+export function saveBackstageLastViewed() { set('backstage_last_viewed', Date.now()); }
+export function hasUnreadBackstage() {
+  const data = getBackstageEpisodes();
+  if (!data?.episodes?.length) return false;
+  const lastViewed = get('backstage_last_viewed') || 0;
+  const now = Date.now();
+  return data.episodes.some(ep =>
+    (ep.messages || []).some(msg => {
+      const unlockAt = ep.startTime + (msg.revealDelay || 0) * 60 * 1000;
+      return unlockAt <= now && unlockAt > lastViewed;
+    })
+  );
+}
 
 export function getDailyQuestion() { return get('daily_question') || null; }
 export function saveDailyQuestion(data) { set('daily_question', data); }

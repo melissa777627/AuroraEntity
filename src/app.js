@@ -1,4 +1,4 @@
-import { getEntities, getSettings, getEntityVibe, saveEntityVibe, hasUnreadGrievance, hasUnreadLounge } from './storage.js';
+import { getEntities, getSettings, getEntityVibe, saveEntityVibe, hasUnreadGrievance, hasUnreadLounge, hasUnreadBackstage } from './storage.js';
 import { callEntityVibe } from './api.js';
 import { getMoonPhase } from './moonphase.js';
 import { renderHome } from '../components/home.js';
@@ -108,6 +108,9 @@ function updateSidebar() {
     if (route === 'lounge') {
       link.classList.toggle('has-notification', hasUnreadLounge());
     }
+    if (route === 'backstage') {
+      link.classList.toggle('has-notification', hasUnreadBackstage());
+    }
   });
 
   // Moon badge in sidebar
@@ -130,6 +133,7 @@ function updateMobileNav() {
     a.classList.toggle('active', hash.includes(route));
     if (route === 'grievance') a.classList.toggle('has-notification', hasUnreadGrievance());
     if (route === 'lounge') a.classList.toggle('has-notification', hasUnreadLounge());
+    if (route === 'backstage') a.classList.toggle('has-notification', hasUnreadBackstage());
   });
 }
 

@@ -1,5 +1,5 @@
 import { getSettings } from './storage.js';
-import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
+import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -412,18 +412,17 @@ export async function callBackstage(entities, cards, tones, gimmick, interjectio
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: buildBackstagePrompt(entities, cards, tones, gimmick, interjection) }] }],
-      generationConfig: { temperature: 0.92, maxOutputTokens: 1500, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+      generationConfig: { temperature: 0.92, maxOutputTokens: Math.max(1500, entities.length * 500), responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
     })
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
   const data = await res.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '[]').trim();
+  const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '[]').trim();
   let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
   const m = clean.match(/\[[\s\S]*\]/);
   if (m) clean = m[0];
   const parsed = (() => { try { return JSON.parse(clean); } catch { return []; } })();
-  if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('API คืน messages ว่าง — ลองใหม่');
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error('API คืน messages ว่าง — ลองใหม่');
   return parsed;
 }
 
@@ -521,6 +520,41 @@ export async function callPollEntityVotes(entities, options, question, entityCar
   return parsed;
 }
 
+export async function callPollReaction(entity, allEntities, question, onChunk) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse&key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildPollReactionPrompt(entity, allEntities, question) }] }],
+      generationConfig: { temperature: 0.92, maxOutputTokens: 100, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  let full = '';
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (!raw || raw === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        const chunk = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (chunk) { full += chunk; onChunk?.(chunk, full); }
+      } catch {}
+    }
+  }
+  return full;
+}
+
 // ── ตู้ไปรษณีย์ฝากใจ ──────────────────────────────────────────────────────────
 export async function callMailboxReply(entity, message, allEntities) {
   const { key, model } = cfg();
@@ -569,7 +603,7 @@ export async function callMidnightChat(entities, entityCards, gimmicks) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: buildMidnightChatPrompt(entities, entityCards, gimmicks) }] }],
-      generationConfig: { temperature: 0.95, maxOutputTokens: 2500, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 1024 } }
+      generationConfig: { temperature: 0.95, maxOutputTokens: 2500, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
     })
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }

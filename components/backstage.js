@@ -1,14 +1,19 @@
-import { getEntities, getBackstageEpisodes, saveBackstageEpisodes, getMidnightChat, saveMidnightChat } from '../src/storage.js';
+import { getEntities, getBackstageEpisodes, saveBackstageEpisodes, getMidnightChat, saveMidnightChat, saveBackstageLastViewed } from '../src/storage.js';
 import { callBackstage, callMidnightChat, callMidnightInteractivePrompt, callMidnightReply } from '../src/api.js';
 
 const TONES = [
-  'เป็นห่วงแบบผิดจุด','เถียงกันเรื่อง keeper','ชื่นชมแบบไม่กล้าบอกตรงๆ',
-  'วางแผนแอบช่วย','นินทาด้วยความรัก','เรื่องของตัวเองล้วนๆ',
+  'เป็นห่วงแบบผิดจุด','เถียงกันเรื่อง keeper','วางแผนแอบช่วย',
+  'นินทาด้วยความรัก','เรื่องของตัวเองล้วนๆ',
   'ระแวงว่า keeper หายไปไหน','เดิมพันเรื่อง keeper','อิจฉากันเอง',
   'เหนื่อยกับ keeper แบบยังรัก','drift ออกนอกเรื่อง','Nostalgic',
   'ปกป้อง keeper จากกันเอง','สอนกันเรื่อง keeper','ตกใจเรื่อง keeper',
   'แข่งว่าใครเข้าใจ keeper มากกว่า','Fangirl เรื่อง keeper',
   'คิดถึง keeper ตอน keeper ไม่มา','ลางบอกเหตุ','โกรธ keeper แต่ไม่ยอมรับ',
+  'ขำ keeper แต่ไม่บอก','รู้สึกผิดแต่ไม่ยอมรับ','เถียงกันว่า keeper ผิดหรือถูก',
+  'เอา keeper มาเป็นตัวอย่างในทุกเรื่อง','ใครจะเป็นคนบอก keeper',
+  'keeper กำลังจะทำพลาดแต่ห้ามไม่ได้','เชื่อว่า keeper ส่งสัญญาณมา แต่แปลผิดกันหมด',
+  'ถกกันว่า keeper เป็นประเภทไหน','พิสูจน์ว่าตัวเองไม่แคร์ keeper แต่ทำไม่ได้',
+  'รอให้ keeper ถามก่อน','แย่งกันเป็นผู้เชี่ยวชาญ keeper แต่มั่วกันหมด',
 ];
 
 const INCOMPATIBLE_MIXES = [
@@ -18,6 +23,7 @@ const INCOMPATIBLE_MIXES = [
 
 const GIMMICKS = ['A', 'B', 'E', null, null, null];
 const INTERJECTION_TYPES = [1,2,3,4,5,6,7,8,9,10];
+const BS_DATA_VERSION = 2;
 
 const SLOTS = [
   { id: 'morning',   startRange: [7*60, 9*60+30] },
@@ -25,8 +31,8 @@ const SLOTS = [
   { id: 'night',     startRange: [19*60, 21*60+30] },
 ];
 
-const REVEAL_INTERVAL_MIN = 18;
-const REVEAL_INTERVAL_MAX = 22;
+const REVEAL_INTERVAL_MIN = 11;
+const REVEAL_INTERVAL_MAX = 13;
 
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -66,7 +72,7 @@ function pickTones() {
 }
 
 function pickEntities(all) {
-  const count = Math.min(all.length, randInt(2, Math.min(7, all.length)));
+  const count = randInt(2, Math.min(all.length, 7));
   return shuffle(all).slice(0, count);
 }
 
@@ -75,8 +81,8 @@ function pickInterjector(mainEntityIds, all) {
   return others.length ? pick(others) : null;
 }
 
-async function generateEpisode(slot, allEntities, cardsPool) {
-  const mainEntities = pickEntities(allEntities);
+async function generateEpisode(slot, allEntities, cardsPool, mainEntities) {
+  if (!mainEntities) mainEntities = pickEntities(allEntities);
   const mainIds = mainEntities.map(e => e.id);
   const tones = pickTones();
   const gimmick = Math.random() < 0.5 ? pick(GIMMICKS) : null;
@@ -99,8 +105,8 @@ async function generateEpisode(slot, allEntities, cardsPool) {
   const messages = [];
   let cumDelay = 0;
   for (let i = 0; i < rawMessages.length; i++) {
-    if (i > 0) {
-      cumDelay += Math.random() < 0.25 ? randInt(0, 2) : revealInterval;
+    if (i > 0 && rawMessages[i - 1]?.cliffhanger) {
+      cumDelay += revealInterval;
     }
     messages.push({ ...rawMessages[i], revealDelay: cumDelay });
   }
@@ -142,7 +148,6 @@ function renderEpisode(episode, allEntities, prevCount = 0) {
   }
 
   let prevId = null;
-  let newIdx = 0;
   const msgHtml = visible.map((m, i) => {
     const entity = allEntities.find(e => e.id === m.entityId);
     const name = esc(entity?.name || m.entityId);
@@ -153,13 +158,20 @@ function renderEpisode(episode, allEntities, prevCount = 0) {
       ? `<div class="bs-msg-header"><span class="bs-avatar">${icon}</span><span class="bs-sender-name">${name}</span></div>`
       : '';
     const isNew = i >= prevCount;
-    const animClass = isNew ? ' mn-bubble-in' : ' mn-no-anim';
-    const delayAttr = isNew ? ` style="${entityStyle(m.entityId)};animation-delay:${newIdx++ * 0.08}s"` : ` style="${entityStyle(m.entityId)}"`;
-    return `<div class="bs-msg-group${showHeader ? '' : ' bs-continued'}${animClass}"${delayAttr}>${header}<div class="bs-bubble-row"><div class="bs-bubble">${esc(m.text)}</div></div></div>`;
+    const styleStr = isNew
+      ? `${entityStyle(m.entityId)};opacity:0;transform:translateY(8px)`
+      : entityStyle(m.entityId);
+    const reaction = episode.reactions?.[i];
+    const reactionBadge = reaction ? `<div class="bs-reaction-badge">${reaction}</div>` : '';
+    const bubbleContent = isNew
+      ? `<div class="bs-bubble bs-typewriter" data-fulltext="${esc(m.text).replace(/"/g, '&quot;')}"></div>`
+      : `<div class="bs-bubble">${esc(m.text)}</div>`;
+    return `<div class="bs-msg-group${showHeader ? '' : ' bs-continued'}" data-ep-id="${episode.id}" data-msg-idx="${i}" style="${styleStr}">${header}<div class="bs-bubble-row">${bubbleContent}</div>${reactionBadge}</div>`;
   }).join('');
 
+  const lastVisible = visible[visible.length - 1];
   let lockedHtml = '';
-  if (nextLocked) {
+  if (nextLocked && lastVisible?.cliffhanger) {
     const entity = allEntities.find(e => e.id === nextLocked.entityId);
     const icon = esc(entity?.icon || '🌙');
     const name = esc(entity?.name || nextLocked.entityId);
@@ -185,6 +197,7 @@ export async function renderBackstage(container, sub) {
     container.innerHTML = `<div class="page"><div class="empty-state"><div class="empty-icon">👁</div><p>ยังไม่มีตน — เพิ่มตนก่อนนะ</p></div></div>`;
     return;
   }
+  saveBackstageLastViewed();
 
   if (sub === 'midnight') {
     container.innerHTML = `
@@ -233,15 +246,14 @@ export async function renderBackstage(container, sub) {
   const nowMin = nowMinutesBKK();
   let saved = getBackstageEpisodes();
 
-  if (!saved || saved.date !== today) {
-    saved = { date: today, episodes: [] };
+  if (!saved || saved.date !== today || saved.version !== BS_DATA_VERSION) {
+    saved = { version: BS_DATA_VERSION, date: today, episodes: [] };
   }
 
   // Remove expired episodes (> 24h old)
   saved.episodes = saved.episodes.filter(ep => Date.now() - ep.startTime < 24 * 60 * 60 * 1000);
 
   async function generateAndRender(bypassTime = false) {
-    // ถ้ามีของอยู่แล้ว แสดงทันทีก่อน ไม่รอ
     if (saved.episodes.length) drawEpisodes();
 
     for (const slot of SLOTS) {
@@ -249,12 +261,18 @@ export async function renderBackstage(container, sub) {
       if (alreadyExists) continue;
       if (!bypassTime && nowMin < slot.startRange[0]) continue;
 
-      // ไม่มีของเดิม → แสดง loading / มีของเดิม → generate เงียบๆ
+      const mainEntities = pickEntities(allEntities);
+
       if (!saved.episodes.length) {
-        epContainer.innerHTML = `<div class="bs-generating">⏳ กำลังแอบดู...</div>`;
+        const loadDiv = document.createElement('div');
+        loadDiv.className = 'bs-episode';
+        epContainer.innerHTML = '';
+        epContainer.appendChild(loadDiv);
+        showGeneratingState(loadDiv, mainEntities);
       }
+
       try {
-        const ep = await generateEpisode(slot, allEntities, cardsPool);
+        const ep = await generateEpisode(slot, allEntities, cardsPool, mainEntities);
         if (bypassTime) ep.startTime = Date.now() - (REVEAL_INTERVAL_MAX * 60 * 1000 * 8);
         saved.episodes.push(ep);
         saveBackstageEpisodes(saved);
@@ -262,6 +280,7 @@ export async function renderBackstage(container, sub) {
       } catch {
         if (!saved.episodes.length) {
           epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
+          appendTestBtn();
           return;
         }
       }
@@ -270,8 +289,74 @@ export async function renderBackstage(container, sub) {
   }
 
   const epRenderedCounts = {};
+  let typingInProgress = false;
+
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+
+  function showGeneratingState(div, entities) {
+    const hint = document.createElement('div');
+    hint.className = 'bs-generating';
+    hint.textContent = 'กำลังแอบดู...';
+    div.appendChild(hint);
+
+    const widths = [60, 75, 45, 82, 55, 70, 40, 68];
+    const skeletonEntities = shuffle(entities);
+    for (let i = 0; i < 8; i++) {
+      const entity = skeletonEntities[i % skeletonEntities.length];
+      const c  = entity.color_primary   || 'var(--accent-deep)';
+      const bg = entity.color_secondary || 'rgba(255,182,193,0.15)';
+      const group = document.createElement('div');
+      group.className = 'bs-msg-group bs-continued';
+      group.style.cssText = `--bs-c:${c};--bs-bg:${bg}`;
+      group.innerHTML = `<div class="bs-bubble-row"><div class="bs-bubble bs-skeleton" style="width:${widths[i % widths.length]}%"></div></div>`;
+      div.appendChild(group);
+    }
+  }
+
+  async function runTypewriters(bubbles) {
+    typingInProgress = true;
+    const fast = bubbles.length > 5;
+    const charMs = fast ? 7 : 22;
+    const gapMs  = fast ? 20 : 65;
+
+    for (const bubble of bubbles) {
+      const group = bubble.closest('[data-msg-idx]');
+      if (!group || !document.contains(group)) break;
+
+      const text = bubble.dataset.fulltext || '';
+
+      group.getBoundingClientRect();
+      group.style.transition = 'opacity 0.18s ease, transform 0.18s ease';
+      group.style.opacity = '1';
+      group.style.transform = 'translateY(0)';
+      await pause(55);
+
+      for (let j = 1; j <= text.length; j++) {
+        if (!document.contains(bubble)) { typingInProgress = false; return; }
+        bubble.textContent = text.slice(0, j);
+        await pause(charMs);
+      }
+
+      await pause(gapMs);
+    }
+    typingInProgress = false;
+  }
+
+  function appendTestBtn() {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost';
+    btn.style.cssText = 'margin:12px auto;display:block;font-size:0.72rem;opacity:0.45';
+    btn.textContent = '↺ generate ใหม่ (ทดสอบ)';
+    btn.addEventListener('click', async () => {
+      saved.episodes = [];
+      saveBackstageEpisodes(saved);
+      await generateAndRender(true);
+    });
+    epContainer.appendChild(btn);
+  }
 
   function drawEpisodes() {
+    if (typingInProgress) return;
     epContainer.innerHTML = '';
 
     if (!saved.episodes.length) {
@@ -279,8 +364,11 @@ export async function renderBackstage(container, sub) {
         <div class="backstage-empty">
           <p>บทสนทนายังไม่เริ่ม — กลับมาใหม่หลัง ${formatTime(SLOTS[0].startRange[0])} น.</p>
         </div>`;
+      appendTestBtn();
       return;
     }
+
+    const newBubbles = [];
 
     for (let i = 0; i < saved.episodes.length; i++) {
       const ep = saved.episodes[i];
@@ -289,7 +377,6 @@ export async function renderBackstage(container, sub) {
       const isLast = i === saved.episodes.length - 1;
 
       if (isDone && !isLast) {
-        // พับตอนที่จบแล้ว
         const details = document.createElement('details');
         details.className = 'bs-episode-collapsed';
         const prevCount = epRenderedCounts[ep.id] || 0;
@@ -307,6 +394,7 @@ export async function renderBackstage(container, sub) {
         const div = document.createElement('div');
         div.className = 'bs-episode';
         div.innerHTML = renderEpisode(ep, allEntities, prevCount);
+        div.querySelectorAll('.bs-typewriter').forEach(b => newBubbles.push(b));
         epContainer.appendChild(div);
       }
     }
@@ -315,9 +403,63 @@ export async function renderBackstage(container, sub) {
     footer.className = 'bs-footer';
     footer.textContent = '👁 กำลังแอบดูอยู่';
     epContainer.appendChild(footer);
+
+    appendTestBtn();
+
+    if (newBubbles.length) runTypewriters(newBubbles);
   }
 
   await generateAndRender(false);
+
+  // ── Emoji reactions ──
+  const EMOJIS = ['❤️', '😂', '😮', '😢', '💀', '🙄', '🥹', '👀'];
+  let activePicker = null;
+
+  function closePicker() { activePicker?.remove(); activePicker = null; }
+
+  epContainer.addEventListener('click', e => {
+    // Emoji button click
+    const emojiBtn = e.target.closest('.bs-emoji-btn');
+    if (emojiBtn && activePicker) {
+      e.stopPropagation();
+      const group = activePicker.closest('[data-msg-idx]');
+      const epId = group?.dataset.epId;
+      const msgIdx = parseInt(group?.dataset.msgIdx);
+      const ep = saved.episodes.find(x => x.id === epId);
+      if (ep) {
+        if (!ep.reactions) ep.reactions = {};
+        const emoji = emojiBtn.dataset.emoji;
+        if (emoji) ep.reactions[msgIdx] = emoji; else delete ep.reactions[msgIdx];
+        saveBackstageEpisodes(saved);
+      }
+      closePicker();
+      drawEpisodes();
+      return;
+    }
+
+    // Bubble click — open/close picker
+    const bubble = e.target.closest('.bs-bubble:not(.bs-typing)');
+    const group = bubble?.closest('[data-msg-idx]');
+
+    if (activePicker) {
+      const same = activePicker.closest('[data-msg-idx]') === group;
+      closePicker();
+      if (same) return;
+    }
+    if (!group) return;
+
+    const epId = group.dataset.epId;
+    const msgIdx = parseInt(group.dataset.msgIdx);
+    const ep = saved.episodes.find(x => x.id === epId);
+    const cur = ep?.reactions?.[msgIdx];
+
+    activePicker = document.createElement('div');
+    activePicker.className = 'bs-emoji-picker';
+    activePicker.innerHTML = EMOJIS.map(em =>
+      `<button class="bs-emoji-btn${em === cur ? ' active' : ''}" data-emoji="${em}">${em}</button>`
+    ).join('') + (cur ? `<button class="bs-emoji-btn bs-emoji-clear" data-emoji="">✕</button>` : '');
+    group.appendChild(activePicker);
+  });
 
   // Auto-refresh every minute to reveal new messages
   let refreshTimer = setInterval(() => {
@@ -354,7 +496,7 @@ export async function prefetchBackstageEpisodes() {
   const today = todayBKK();
   const nowMin = nowMinutesBKK();
   let saved = getBackstageEpisodes();
-  if (!saved || saved.date !== today) saved = { date: today, episodes: [] };
+  if (!saved || saved.date !== today || saved.version !== BS_DATA_VERSION) saved = { version: BS_DATA_VERSION, date: today, episodes: [] };
   saved.episodes = saved.episodes.filter(ep => Date.now() - ep.startTime < 24 * 60 * 60 * 1000);
 
   const dueSlot = SLOTS.find(slot =>

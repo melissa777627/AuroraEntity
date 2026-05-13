@@ -1208,7 +1208,16 @@
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 .lounge-menu-card:hover { border-color: var(--accent-deep); box-shadow: 0 2px 12px rgba(232, 130, 154, 0.18); }
-.lounge-menu-card-icon { font-size: 1.4rem; flex-shrink: 0; width: 32px; text-align: center; }
+.lounge-menu-card-icon { font-size: 1.4rem; flex-shrink: 0; width: 32px; text-align: center; position: relative; }
+.lounge-menu-card.has-dot .lounge-menu-card-icon::after {
+  content: '';
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 8px; height: 8px;
+  background: #e05555;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+}
 .lounge-menu-card-body { flex: 1; min-width: 0; }
 .lounge-menu-card-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
 .lounge-menu-card-desc { font-size: 0.76rem; color: var(--text-soft); line-height: 1.4; }
@@ -2549,11 +2558,50 @@
   padding: 18px 0 4px;
   letter-spacing: 0.05em;
 }
+.bs-reaction-badge {
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-top: 2px;
+  padding-left: 10px;
+  user-select: none;
+}
+.bs-emoji-picker {
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  margin-top: 4px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  width: fit-content;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  animation: fadeIn 0.15s ease;
+}
+.bs-emoji-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  padding: 3px 4px;
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s;
+}
+.bs-emoji-btn:hover, .bs-emoji-btn.active { background: var(--accent); }
+.bs-emoji-clear { font-size: 0.75rem; opacity: 0.5; }
 .bs-generating {
   text-align: center;
   color: var(--text-soft);
   font-style: italic;
   padding: 12px;
+}
+.bs-skeleton {
+  min-height: 1em;
+  animation: bs-skeleton-pulse 1.5s ease-in-out infinite;
+}
+@keyframes bs-skeleton-pulse {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 0.55; }
 }
 .backstage-empty {
   text-align: center;
@@ -2737,6 +2785,19 @@ details[open] .poll-details-summary::before { content: '▾ '; }
   font-size: 0.82rem;
   padding: 8px 0 12px;
 }
+.poll-reaction {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-deep);
+  border-radius: 0 12px 12px 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+.poll-reaction-loading { opacity: 0.7; }
+.poll-reaction-who { font-weight: 600; margin-right: 6px; color: var(--accent-deep); }
+.poll-reaction-text { color: var(--text-primary); font-style: italic; }
 
 /* ─── ตู้ไปรษณีย์ฝากใจ ─────────────────────── */
 .mailbox-form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
