@@ -2513,6 +2513,35 @@
   letter-spacing: 0.04em;
 }
 
+.bs-episode-collapsed {
+  margin-bottom: 0;
+}
+.bs-episode-collapsed summary { list-style: none; }
+.bs-episode-collapsed summary::-webkit-details-marker { display: none; }
+
+.bs-episode-drift {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  font-style: italic;
+  opacity: 0.45;
+  padding: 10px 0;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.bs-episode-drift::before { content: '✦ '; }
+
+.bs-episode-archived {
+  opacity: 0.6;
+  border-top: 1px solid rgba(255,255,255,.05);
+  padding-top: 8px;
+}
+
+.bs-episode-divider {
+  margin: 12px 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
 .bs-footer {
   text-align: center;
   font-size: 0.72rem;

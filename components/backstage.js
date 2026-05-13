@@ -282,16 +282,34 @@ export async function renderBackstage(container, sub) {
       return;
     }
 
-    for (const ep of saved.episodes) {
-      const prevCount = epRenderedCounts[ep.id] || 0;
+    for (let i = 0; i < saved.episodes.length; i++) {
+      const ep = saved.episodes[i];
       const visible = getVisibleMessages(ep);
-      epRenderedCounts[ep.id] = visible.length;
-      const div = document.createElement('div');
-      div.className = 'bs-episode';
-      div.innerHTML = renderEpisode(ep, allEntities, prevCount);
-      epContainer.appendChild(div);
-    }
+      const isDone = visible.length === ep.messages.length && ep.messages.length > 0;
+      const isLast = i === saved.episodes.length - 1;
 
+      if (isDone && !isLast) {
+        // พับตอนที่จบแล้ว
+        const details = document.createElement('details');
+        details.className = 'bs-episode-collapsed';
+        const prevCount = epRenderedCounts[ep.id] || 0;
+        details.innerHTML = `
+          <summary class="bs-episode-drift">บทสนทนานี้ค่อยๆลอยไปตามลม...</summary>
+          <div class="bs-episode bs-episode-archived">${renderEpisode(ep, allEntities, prevCount)}</div>`;
+        epContainer.appendChild(details);
+        const div = document.createElement('div');
+        div.className = 'bs-episode-divider';
+        epContainer.appendChild(div);
+      } else {
+        const prevCount = epRenderedCounts[ep.id] || 0;
+        const newVisible = visible.length;
+        epRenderedCounts[ep.id] = newVisible;
+        const div = document.createElement('div');
+        div.className = 'bs-episode';
+        div.innerHTML = renderEpisode(ep, allEntities, prevCount);
+        epContainer.appendChild(div);
+      }
+    }
 
     const footer = document.createElement('div');
     footer.className = 'bs-footer';
