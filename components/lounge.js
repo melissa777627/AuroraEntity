@@ -849,9 +849,14 @@ function renderMailboxUI(container, entities) {
   if (pending.length) {
     html += pending.map(l => {
       const entity = entities.find(e => e.id === l.entityId);
+      const now = Date.now();
+      const picked = now >= (l.entityPickedAt || l.sentAt + 10 * 60 * 1000);
+      const statusHtml = picked
+        ? `<div class="mailbox-pending mailbox-pending-reading">${esc(entity?.icon || '📬')} ${esc(entity?.name || '?')} หยิบจดหมาย — กำลังอ่าน...</div>`
+        : `<div class="mailbox-pending mailbox-pending-waiting">📭 ยังไม่มีใครหยิบจดหมาย</div>`;
       return `<div class="mailbox-letter" style="margin-top:12px">
         <div class="mailbox-msg-keeper">${esc(l.message)}</div>
-        <div class="mailbox-pending">${esc(entity?.icon || '📬')} ${esc(entity?.name || '?')} หยิบจดหมายของคุณแล้ว — กำลังอ่านอยู่...</div>
+        ${statusHtml}
       </div>`;
     }).join('');
   }
@@ -881,9 +886,11 @@ function renderMailboxUI(container, entities) {
 
     const entity = entities[Math.floor(Math.random() * entities.length)];
     const id = `mail_${Date.now()}`;
-    const replyUnlockAt = Date.now() + (2 + Math.random()) * 3600000;
+    const now = Date.now();
+    const entityPickedAt = now + 10 * 60 * 1000;
+    const replyUnlockAt = now + (2 + Math.random()) * 3600000;
 
-    addMailboxLetter({ id, sentAt: Date.now(), message: msg, entityId: entity.id, reply: null, replyUnlockAt, read: false });
+    addMailboxLetter({ id, sentAt: now, message: msg, entityId: entity.id, entityPickedAt, reply: null, replyUnlockAt, read: false });
 
     try {
       const reply = await callMailboxReply(entity, msg, entities);
@@ -895,9 +902,15 @@ function renderMailboxUI(container, entities) {
     renderMailboxUI(container, entities);
   });
 
-  // Auto-refresh pending when time comes (within 5 min window)
+  // Auto-refresh: ตอน entity หยิบ (10 นาที) และตอน unlock
   pending.forEach(l => {
-    const remaining = l.replyUnlockAt - Date.now();
+    const now = Date.now();
+    const pickedAt = l.entityPickedAt || (l.sentAt + 10 * 60 * 1000);
+    const tillPick = pickedAt - now;
+    if (tillPick > 0 && tillPick < 600500) {
+      setTimeout(() => renderMailboxUI(container, entities), tillPick + 500);
+    }
+    const remaining = l.replyUnlockAt - now;
     if (remaining > 0 && remaining < 300000) {
       setTimeout(() => renderMailboxUI(container, entities), remaining + 1000);
     }

@@ -2756,9 +2756,15 @@ details[open] .poll-details-summary::before { content: '▾ '; }
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
-  color: var(--text-soft);
   font-style: italic;
   padding: 6px 0;
+}
+.mailbox-pending-waiting {
+  color: var(--text-soft);
+  opacity: 0.6;
+}
+.mailbox-pending-reading {
+  color: var(--text-soft);
 }
 .mailbox-msg-keeper {
   background: var(--accent);
