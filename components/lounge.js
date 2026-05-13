@@ -707,7 +707,7 @@ async function renderPollSection(container, entities, today) {
       poll = { date: today, question, options, userVote: null, entityVotes: null };
       saveDailyPoll(poll);
     } catch {
-      container.innerHTML = `<div class="lounge-section-title">⚖️ ศาลเตี้ยชี้ตัว</div><div class="empty-state"><p>ศาลยังไม่พร้อม — ลองใหม่นะ</p></div>`;
+      container.innerHTML = `<div class="lounge-section-title">⚖️ ศาลเตี้ยชี้ตัว</div><div class="empty-state"><p>ศาลล่ม ลองใหม่</p></div>`;
       return;
     }
   }
@@ -813,7 +813,7 @@ function renderPollUI(container, poll, entities) {
         saveDailyPoll(updated);
         renderPollUI(container, updated, entities);
       } catch(err) {
-        window.showToast?.('ศาลล่ม — ' + (err?.message || 'ลองใหม่'), 'error');
+        window.showToast?.('ศาลล่ม ลองใหม่', 'error');
         renderPollUI(container, poll, entities);
       }
     });
