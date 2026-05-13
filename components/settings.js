@@ -1,4 +1,4 @@
-import { getSettings, saveSettings, getEntities, getReadings, getFavorites, set, get } from '../src/storage.js';
+import { getSettings, saveSettings, getEntities, getReadings, getFavorites, getOfferingHistory, set, get } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
 
 const USER_ICON_CATEGORIES = [
@@ -85,25 +85,34 @@ export function renderSettings(container) {
           </div>
         </div>
 
+        <div class="profile-section" style="margin-top:4px">
+          <div class="profile-section-title">ข้อมูล & สำรอง</div>
+          <p style="font-size:0.8rem;color:var(--text-soft);margin-bottom:12px">Export ก่อนล้าง cache หรือเปลี่ยนอุปกรณ์ — Import เพื่อโหลดข้อมูลกลับ</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn btn-secondary" id="export-btn">💾 Export ทั้งหมด</button>
+            <label class="btn btn-ghost" style="cursor:pointer">
+              📥 Import ข้อมูล
+              <input type="file" id="import-file" accept=".json" style="display:none">
+            </label>
+          </div>
+          <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+            <p style="font-size:0.75rem;color:var(--text-soft);margin-bottom:8px">Export แยกไฟล์</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-ghost" id="export-chat-btn">💬 Export Chat Log</button>
+              <button class="btn btn-ghost" id="export-offering-btn">🎁 Export Offering Log</button>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+            <button class="btn btn-ghost" id="clear-cache-btn" style="color:rgba(255,100,100,.7)">🗑️ ล้าง Cache</button>
+          </div>
+        </div>
+
         <div style="display:flex;gap:10px">
           <button class="btn btn-primary" id="save-settings-btn">💾 บันทึก</button>
           <button class="btn btn-ghost" id="test-api-btn">🔍 ทดสอบ API</button>
         </div>
 
         <div id="test-result" style="margin-top:12px;font-size:0.85rem;display:none"></div>
-
-        <div class="profile-section" style="margin-top:24px">
-          <div class="profile-section-title">ข้อมูล</div>
-          <p style="font-size:0.8rem;color:var(--text-soft);margin-bottom:12px">ข้อมูลทั้งหมดเก็บใน browser — Export ก่อนล้าง cache หรือเปลี่ยนอุปกรณ์</p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-secondary" id="export-btn">💾 Export ข้อมูล</button>
-            <label class="btn btn-ghost" style="cursor:pointer">
-              📥 Import ข้อมูล
-              <input type="file" id="import-file" accept=".json" style="display:none">
-            </label>
-            <button class="btn btn-ghost" id="clear-cache-btn" style="color:rgba(255,100,100,.7)">🗑️ ล้าง Cache</button>
-          </div>
-        </div>
       </div>
     </div>`;
 
@@ -168,6 +177,32 @@ export function renderSettings(container) {
     a.click();
     URL.revokeObjectURL(url);
     showToast('Export สำเร็จ 💾', 'success');
+  });
+
+  container.querySelector('#export-chat-btn').addEventListener('click', () => {
+    const readings = getReadings();
+    if (!readings.length) { showToast('ยังไม่มี chat log', 'error'); return; }
+    const blob = new Blob([JSON.stringify(readings, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aurora-chat-log-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Export chat log สำเร็จ (${readings.length} sessions) 💬`, 'success');
+  });
+
+  container.querySelector('#export-offering-btn').addEventListener('click', () => {
+    const history = getOfferingHistory();
+    if (!history.length) { showToast('ยังไม่มี offering log', 'error'); return; }
+    const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aurora-offering-log-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Export offering log สำเร็จ (${history.length} entries) 🎁`, 'success');
   });
 
   container.querySelector('#import-file').addEventListener('change', e => {
