@@ -320,6 +320,35 @@ function midnightDateKey() {
   return bkk.toLocaleDateString('en-CA');
 }
 
+// Generate backstage episodes in background (no DOM) — call on load + every minute
+export async function prefetchBackstageEpisodes() {
+  const allEntities = getEntities();
+  if (!allEntities.length) return;
+
+  const today = todayBKK();
+  const nowMin = nowMinutesBKK();
+  let saved = getBackstageEpisodes();
+  if (!saved || saved.date !== today) saved = { date: today, episodes: [] };
+  saved.episodes = saved.episodes.filter(ep => Date.now() - ep.startTime < 24 * 60 * 60 * 1000);
+
+  const dueSlot = SLOTS.find(slot =>
+    !saved.episodes.find(ep => ep.slot === slot.id) && nowMin >= slot.startRange[0]
+  );
+  if (!dueSlot) return;
+
+  let cardsPool;
+  try {
+    const data = await fetch('data/cards.json').then(r => r.json());
+    cardsPool = data.tarot || [];
+  } catch { return; }
+
+  try {
+    const ep = await generateEpisode(dueSlot, allEntities, cardsPool);
+    saved.episodes.push(ep);
+    saveBackstageEpisodes(saved);
+  } catch {}
+}
+
 const MIDNIGHT_GIMMICKS = ['silence', 'dots', 'confess', 'philosophy', 'secret', 'disagree'];
 
 // Generate midnight chat data in background (no DOM) — call on load + every minute
@@ -371,20 +400,23 @@ export async function prefetchMidnightChat() {
 export async function renderMidnightSection(container, allEntities) {
   const section = document.createElement('div');
   section.className = 'midnight-section';
-  section.innerHTML = `<div class="midnight-loading" style="text-align:center;color:var(--text-soft);padding:24px;font-style:italic">กำลังแอบฟังเรื่องที่คุณไม่ควรได้ยิน...</div>`;
   container.appendChild(section);
 
   const dateKey = midnightDateKey();
   let mc = getMidnightChat();
   if (mc?.date !== dateKey) mc = null;
 
-  let cardsPool;
+  // แสดง loading เฉพาะตอนที่ต้อง generate เท่านั้น
+  if (!mc) {
+    section.innerHTML = `<div class="midnight-loading" style="text-align:center;color:var(--text-soft);padding:24px;font-style:italic">กำลังแอบฟังเรื่องที่คุณไม่ควรได้ยิน...</div>`;
+  }
+
+  let cardsPool = [];
   try {
     const data = await fetch('data/cards.json').then(r => r.json());
     cardsPool = data.tarot || [];
   } catch {
-    section.querySelector('.midnight-loading').textContent = 'โหลดไพ่ไม่ได้';
-    return;
+    if (!mc) { section.querySelector('.midnight-loading').textContent = 'โหลดไพ่ไม่ได้'; return; }
   }
 
   if (!mc) {

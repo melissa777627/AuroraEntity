@@ -14,7 +14,7 @@ import { renderLounge } from '../components/lounge.js';
 import { renderCouncil } from '../components/council.js';
 import { renderGrievance } from '../components/grievance.js';
 import { renderOffering } from '../components/offering.js';
-import { renderBackstage, prefetchMidnightChat } from '../components/backstage.js';
+import { renderBackstage, prefetchMidnightChat, prefetchBackstageEpisodes } from '../components/backstage.js';
 
 // ── Global navigate helper exposed to inline onclick ──
 export function navigate(hash) { location.hash = hash; }
@@ -237,8 +237,10 @@ window.addEventListener('hashchange', renderFixed);
 window.addEventListener('DOMContentLoaded', async () => {
   await seedEntities();
   renderFixed();
+  prefetchBackstageEpisodes(); // generate episode ที่ถึงเวลาแล้วทันที
   prefetchMidnightChat(); // generate ทันทีถ้าเป็นช่วงเที่ยงคืน
-  setInterval(prefetchMidnightChat, 60000); // เช็คทุกนาที — จับตอนเที่ยงคืนพอดี
+  setInterval(prefetchBackstageEpisodes, 60000);
+  setInterval(prefetchMidnightChat, 60000); // เช็คทุกนาที
 });
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
