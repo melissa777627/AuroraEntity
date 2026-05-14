@@ -1,4 +1,4 @@
-import { getEntities, getReadingsByEntity, getLastReadingDate, getDivineMessage, saveDivineMessage, clearDivineMessage, getDivineCooldown, setDivineCooldown, saveReading, getSettings, getEntityPattern, saveEntityPattern } from '../src/storage.js';
+import { getEntities, getReadingsByEntity, getLastReadingDate, getDivineMessage, saveDivineMessage, clearDivineMessage, getDivineCooldown, setDivineCooldown, saveReading, getSettings, getEntityPattern, saveEntityPattern, getHandcuffs, isHandcuffActive } from '../src/storage.js';
 import { callEntityVoice, callPatternReading } from '../src/api.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { navigate } from '../src/app.js';
@@ -61,6 +61,9 @@ export async function renderHome(container) {
   const thaiDate = today.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const affirmation = getDailyAffirmation();
 
+  const handcuff = isHandcuffActive() ? getHandcuffs() : null;
+  const handcuffBannerHtml = handcuff ? buildHandcuffBannerHTML(handcuff, entities) : '';
+
   container.innerHTML = `
     <div class="landing-hero" id="landing-hero">
       <a href="#/settings" class="landing-settings-btn" title="Settings">⚙️</a>
@@ -75,6 +78,7 @@ export async function renderHome(container) {
     </div>
 
     <div class="home-lower">
+      ${handcuffBannerHtml}
       <div id="divine-section"></div>
       <div id="pattern-section"></div>
       <div id="quiet-section"></div>
@@ -403,6 +407,29 @@ async function pickRandomCards(count) {
     picked.push({ ...card, reversed: false, position_label: ['ที่หนึ่ง','ที่สอง','ที่สาม'][picked.length] });
   }
   return picked;
+}
+
+function buildHandcuffBannerHTML(handcuff, entities) {
+  const def = entities.find(e => e.id === handcuff.defendantId);
+  const acc = entities.find(e => e.id === handcuff.accompliceId);
+  if (!def || !acc) return '';
+  const msLeft = handcuff.expiresAt - Date.now();
+  const hLeft = Math.floor(msLeft / 3600000);
+  const mLeft = Math.floor((msLeft % 3600000) / 60000);
+  const timeStr = hLeft > 0 ? `${hLeft} ชม. ${mLeft} น.` : `${mLeft} น.`;
+  const bubbles = (handcuff.bicker || []).map(b => {
+    const e = entities.find(x => x.id === b.entityId);
+    return `<div class="hc-bubble"><span class="hc-bubble-name" style="color:${e?.color_primary || 'var(--accent-deep)'}">${esc(e?.icon || '?')} ${esc(e?.name || '?')}</span><span class="hc-bubble-text">${esc(b.text)}</span></div>`;
+  }).join('');
+  return `<div id="handcuff-banner" class="handcuff-banner">
+    <div class="handcuff-banner-title">⛓️ กุญแจมือวิญญาณ — หายใน ${esc(timeStr)}</div>
+    <div class="handcuff-pair">
+      <span style="color:${def.color_primary || 'var(--accent-deep)'}">${esc(def.icon || '🌙')} ${esc(def.name)}</span>
+      <span class="hc-chain">⛓️</span>
+      <span style="color:${acc.color_primary || 'var(--accent-deep)'}">${esc(acc.icon || '🌙')} ${esc(acc.name)}</span>
+    </div>
+    <div class="handcuff-bicker">${bubbles}</div>
+  </div>`;
 }
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

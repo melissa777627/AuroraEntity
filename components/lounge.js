@@ -1,5 +1,5 @@
-import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism, getFavSummary, saveFavSummary, hasUnreadPostcard, hasUnreadMailboxReply, hasNewFavoritismEvents } from '../src/storage.js';
-import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callPollReaction, callMailboxReply, callFavoritism, callFavSummary } from '../src/api.js';
+import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getPollQuestionHistory, addPollQuestionToHistory, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism, getFavSummary, saveFavSummary, hasUnreadPostcard, hasUnreadMailboxReply, hasNewFavoritismEvents, saveHandcuffs, getReportCard, saveReportCard, hasUnreadReportCard } from '../src/storage.js';
+import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callPollReaction, callMailboxReply, callFavoritism, callFavSummary, callHandcuffBicker, callPollChaos, callVetoGrumble, callReportCard } from '../src/api.js';
 
 const LOUNGE_MENUS = [
   { sub: 'postcard',   icon: '📮', name: 'โปสการ์ดวันนี้',           desc: 'วันนี้พี่อยากส่งอะไรมาให้ — เปิดดูซิ' },
@@ -11,6 +11,7 @@ const LOUNGE_MENUS = [
   { sub: 'poll',       icon: '⚖️', name: 'ศาลเตี้ยชี้ตัว',         desc: 'ใครคือตัวต้นเรื่องกันนะ' },
   { sub: 'mailbox',    icon: '📬', name: 'ตู้ไปรษณีย์ฝากใจ',       desc: 'ทิ้งข้อความไว้ก่อน — ไม่รู้ว่าใครจะมาหยิบ แต่มีคนตอบเสมอ' },
   { sub: 'favoritism', icon: '🏆', name: 'บอร์ดคะแนน',             desc: 'คะแนนความดีความชอบ' },
+  { sub: 'reportcard', icon: '📋', name: 'สมุดพกประจาน',           desc: 'พี่ๆ สวมแว่นแล้วให้คะแนนพฤติกรรมคีปสัปดาห์นี้ — ไม่รู้จะได้เกรดอะไร ขึ้นอยู่กับความประพฤติ' },
 ];
 
 const QUESTION_GIMMICKS = ['guess','instant','tsundere','thisorthat','tease'];
@@ -36,6 +37,7 @@ function renderLoungeLanding(container) {
   if (hasUnreadPostcard()) dots.add('postcard');
   if (hasUnreadMailboxReply()) dots.add('mailbox');
   if (hasNewFavoritismEvents()) dots.add('favoritism');
+  if (hasUnreadReportCard()) dots.add('reportcard');
 
   container.innerHTML = `
     <div class="page">
@@ -77,6 +79,7 @@ function renderLoungeSub(container, entities, today, sub) {
     case 'poll':       renderPollSection(content, entities, today);       break;
     case 'mailbox':    renderMailboxSection(content, entities);           break;
     case 'favoritism': renderFavoritismSection(content, entities);        break;
+    case 'reportcard': renderReportCardSection(content, entities, today); break;
     default: location.hash = '#/lounge';
   }
 }
@@ -707,7 +710,9 @@ async function renderPollSection(container, entities, today) {
 
   if (!poll) {
     try {
-      const question = await callPollQuestion(entities);
+      const history = getPollQuestionHistory();
+      const question = await callPollQuestion(entities, history);
+      addPollQuestionToHistory(question);
       const options = [...entities.map(e => ({ id: e.id, text: e.name })), { id: 'keep', text: 'คีป' }];
       poll = { date: today, question, options, userVote: null, entityVotes: null };
       saveDailyPoll(poll);
@@ -720,7 +725,7 @@ async function renderPollSection(container, entities, today) {
   renderPollUI(container, poll, entities);
 }
 
-function renderPollUI(container, poll, entities) {
+function renderPollUI(container, poll, entities, flags = {}) {
   const settings = getSettings();
   const keeperIcon = esc(settings.userAvatar || '🌸');
 
@@ -746,7 +751,6 @@ function renderPollUI(container, poll, entities) {
     allCast.forEach(v => { tally[v] = (tally[v] || 0) + 1; });
     const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
     const maxCount = sorted[0]?.[1] || 1;
-    const totalVotes = allCast.length;
 
     const tallyHtml = sorted.map(([name, count]) => {
       const opt = poll.options.find(o => o.text === name);
@@ -777,9 +781,23 @@ function renderPollUI(container, poll, entities) {
         : `<div class="poll-reaction poll-reaction-loading" id="poll-reaction-area"><span class="grievance-analyzing">...</span></div>`
       : '';
 
+    // Veto section
+    const vetoHtml = `
+      <div class="poll-veto-section">
+        <p class="poll-veto-desc">🕊️ ในฐานะเจ้าของบ้าน คุณมีสิทธิ์ "ยกฟ้อง" ให้ใครสักคนรอดจากมติครั้งนี้ — แต่คนที่เหลืออาจจะงอนนะ ไม่กดก็ได้ถ้าเห็นว่าสมน้ำสมเนื้อดีแล้ว</p>
+        <div class="poll-veto-options">
+          ${entities.map(e => `<button class="poll-veto-btn" data-id="${esc(e.id)}" data-name="${esc(e.name)}">${esc(e.icon || '🌙')} ยกฟ้อง ${esc(e.name)}</button>`).join('')}
+        </div>
+      </div>`;
+
+    // Handcuff section (if already saved)
+    const handcuffHtml = poll.handcuffEntityIds?.length
+      ? buildHandcuffPollHTML(poll.handcuffEntityIds, entities, poll.bicker || [])
+      : '';
+
     container.innerHTML = `
       <div class="lounge-section-title">⚖️ ศาลเตี้ยชี้ตัว</div>
-      <div class="poll-card">
+      <div class="poll-card" id="poll-card-main">
         <div class="poll-question">${esc(poll.question)}</div>
         <div class="poll-tally">${tallyHtml}</div>
         <details class="poll-details">
@@ -788,7 +806,27 @@ function renderPollUI(container, poll, entities) {
         </details>
         <div class="poll-user-voted">คุณโหวต ${userVotedIcon} ${esc(poll.userVote)}</div>
         ${reactionHtml}
+        ${handcuffHtml}
+        ${vetoHtml}
       </div>`;
+
+    // Veto listeners
+    container.querySelectorAll('.poll-veto-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const pardonedId = btn.dataset.id;
+        const pardonedName = btn.dataset.name;
+        const grumpy = entities.filter(e => e.id !== pardonedId);
+        const section = btn.closest('.poll-veto-section');
+        if (section) section.innerHTML = `<div class="poll-veto-loading">🕊️ กำลังแจ้งมติ...</div>`;
+        try {
+          const messages = await callVetoGrumble(grumpy, pardonedName, poll.question);
+          if (section) section.innerHTML = `<div class="poll-veto-done">🕊️ ยกฟ้องให้ ${esc(pardonedName)} แล้ว</div>`;
+          showVetoPopup(messages, entities, pardonedName);
+        } catch {
+          if (section) section.innerHTML = '';
+        }
+      });
+    });
 
     if (!votedForSelf && userVotedEntity && !poll.reaction) {
       const reactionEl = container.querySelector('#poll-reaction-area');
@@ -805,6 +843,22 @@ function renderPollUI(container, poll, entities) {
           if (reactionEl) reactionEl.remove();
         }
       })();
+    }
+
+    // Trigger unanimous handcuffs
+    if (flags.isUnanimous && !poll.handcuffEntityIds) {
+      const defendantName = sorted[0][0];
+      const defendant = entities.find(e => e.name === defendantName);
+      if (defendant) {
+        const others = entities.filter(e => e.id !== defendant.id);
+        const accomplice = others[Math.floor(Math.random() * others.length)];
+        if (accomplice) triggerHandcuffs(container, defendant, accomplice, entities, poll);
+      }
+    }
+
+    // Trigger court chaos on tie
+    if (flags.isTied && !poll.chaosTriggered) {
+      setTimeout(() => triggerCourtChaos(container, entities, poll.question, sorted), 600);
     }
 
     return;
@@ -844,13 +898,106 @@ function renderPollUI(container, poll, entities) {
         const votes = await callPollEntityVotes(entities, poll.options, poll.question, entityCards);
         const updated = { ...poll, userVote: voted, entityVotes: votes };
         saveDailyPoll(updated);
-        renderPollUI(container, updated, entities);
-      } catch(err) {
+
+        // Detect flags
+        const allCast = [...votes.map(v => v.votedFor), voted];
+        const tally = {};
+        allCast.forEach(v => { tally[v] = (tally[v] || 0) + 1; });
+        const sortedVotes = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+        const isUnanimous = new Set(allCast).size === 1;
+        const isTied = sortedVotes.length >= 2 && sortedVotes[0][1] === sortedVotes[1][1];
+
+        renderPollUI(container, updated, entities, { isUnanimous, isTied });
+      } catch {
         window.showToast?.('ศาลล่ม ลองใหม่', 'error');
         renderPollUI(container, poll, entities);
       }
     });
   });
+}
+
+function buildHandcuffPollHTML(entityIds, entities, bicker) {
+  const [defId, accId] = entityIds;
+  const def = entities.find(e => e.id === defId);
+  const acc = entities.find(e => e.id === accId);
+  if (!def || !acc) return '';
+  const bubbles = (bicker || []).map(b => {
+    const e = entities.find(x => x.id === b.entityId);
+    return `<div class="hc-bubble"><span class="hc-bubble-name" style="color:${e?.color_primary || 'var(--accent-deep)'}">${esc(e?.icon || '?')} ${esc(e?.name || '?')}</span><span class="hc-bubble-text">${esc(b.text)}</span></div>`;
+  }).join('');
+  return `<div class="poll-handcuff-section">
+    <div class="poll-handcuff-title">⛓️ กุญแจมือวิญญาณ — ถูกล่ามกัน 2 ชั่วโมง</div>
+    <div class="poll-handcuff-pair">
+      <span style="color:${def.color_primary || 'var(--accent-deep)'}">${esc(def.icon)} ${esc(def.name)}</span>
+      <span class="hc-chain">⛓️</span>
+      <span style="color:${acc.color_primary || 'var(--accent-deep)'}">${esc(acc.icon)} ${esc(acc.name)}</span>
+    </div>
+    <div class="poll-handcuff-bicker">${bubbles}</div>
+  </div>`;
+}
+
+async function triggerHandcuffs(container, defendant, accomplice, entities, poll) {
+  try {
+    const bicker = await callHandcuffBicker(defendant, accomplice);
+    const expiresAt = Date.now() + 2 * 60 * 60 * 1000;
+    saveHandcuffs({ defendantId: defendant.id, accompliceId: accomplice.id, expiresAt, bicker });
+    const updatedPoll = { ...poll, handcuffEntityIds: [defendant.id, accomplice.id], bicker };
+    saveDailyPoll(updatedPoll);
+
+    const pollCard = container.querySelector('#poll-card-main');
+    if (pollCard) {
+      const existing = pollCard.querySelector('.poll-handcuff-section');
+      const vetoSection = pollCard.querySelector('.poll-veto-section');
+      const html = buildHandcuffPollHTML([defendant.id, accomplice.id], entities, bicker);
+      if (existing) {
+        existing.outerHTML = html;
+      } else if (vetoSection) {
+        vetoSection.insertAdjacentHTML('beforebegin', html);
+      } else {
+        pollCard.insertAdjacentHTML('beforeend', html);
+      }
+    }
+  } catch {}
+}
+
+async function triggerCourtChaos(container, entities, question, sorted) {
+  try {
+    const tiedNames = sorted.filter(([, c]) => c === sorted[0][1]).map(([n]) => n);
+    const ticker = await callPollChaos(entities, question, tiedNames);
+    const pollCard = container.querySelector('#poll-card-main');
+    if (!pollCard) return;
+    saveDailyPoll({ ...getDailyPoll(), chaosTriggered: true });
+    pollCard.style.position = 'relative';
+    pollCard.classList.add('poll-chaos-active');
+    pollCard.insertAdjacentHTML('beforeend', `
+      <div class="poll-chaos-stamp"><span class="poll-chaos-stamp-text">ศาลแตก</span></div>
+      <div class="poll-chaos-ticker-wrap">
+        <span class="poll-chaos-ticker">📡 ${esc(ticker)}</span>
+      </div>`);
+    setTimeout(() => pollCard.querySelector('.poll-chaos-stamp')?.remove(), 2800);
+    setTimeout(() => pollCard.classList.remove('poll-chaos-active'), 5000);
+  } catch {}
+}
+
+function showVetoPopup(messages, entities, pardonedName) {
+  const overlay = document.createElement('div');
+  overlay.className = 'poll-veto-popup';
+  const inner = document.createElement('div');
+  inner.className = 'poll-veto-popup-inner';
+  inner.innerHTML = `
+    <div class="poll-veto-popup-title">😤 เมื่อ keeper ยกฟ้องให้ ${esc(pardonedName)}...</div>
+    ${(messages || []).map(m => {
+      const e = entities.find(x => x.id === m.entityId);
+      return `<div class="poll-veto-msg">
+        <span style="color:${e?.color_primary || 'var(--accent-deep)'}">${esc(e?.icon || '?')} ${esc(e?.name || '?')}</span>
+        <span>${esc(m.message)}</span>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-secondary" style="margin-top:12px;width:100%" id="veto-close-btn">ปิด</button>`;
+  overlay.appendChild(inner);
+  document.body.appendChild(overlay);
+  overlay.querySelector('#veto-close-btn').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 // ── ตู้ไปรษณีย์ฝากใจ ──────────────────────────────────────────────────────────
@@ -1219,6 +1366,69 @@ function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {
 
 }
 
+
+// ── สมุดพกประจาน ─────────────────────────────────────────────────────────────
+function getMondayOf(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toLocaleDateString('en-CA');
+}
+
+async function renderReportCardSection(el, entities, today) {
+  const weekStart = getMondayOf(today);
+  const rc = getReportCard();
+
+  el.innerHTML = `
+    <div class="lounge-section-title">📋 สมุดพกประจาน</div>
+    <div class="rc-brief">พี่ๆ สวมแว่นแล้วให้คะแนนพฤติกรรมคีปสัปดาห์นี้ — ไม่รู้จะได้เกรดอะไร ขึ้นอยู่กับความประพฤติ</div>
+    <div id="rc-body"></div>`;
+  const body = el.querySelector('#rc-body');
+
+  if (rc?.weekStart === weekStart) {
+    if (!rc.seen) saveReportCard({ ...rc, seen: true });
+    renderReportCardUI(body, rc, entities);
+    return;
+  }
+
+  body.innerHTML = `<div class="rc-loading">📋 พี่ๆ กำลังพิจารณา...</div>`;
+  try {
+    const data = await fetch('data/cards.json').then(r => r.json());
+    const pool = [...(data.tarot || [])].sort(() => Math.random() - 0.5);
+    const count = 4 + Math.floor(Math.random() * 3);
+    const entries = Array.from({ length: count }, (_, i) => ({
+      entity: entities[Math.floor(Math.random() * entities.length)],
+      subjectCard: pool[i * 2 % pool.length],
+      gradeCard: pool[(i * 2 + 1) % pool.length],
+    }));
+    const grades = await callReportCard(entries, entities);
+    const saved = { weekStart, grades, seen: true, generatedAt: Date.now() };
+    saveReportCard(saved);
+    renderReportCardUI(body, saved, entities);
+  } catch (e) {
+    body.innerHTML = `<div class="rc-loading">โหลดไม่ได้ ลองใหม่นะ — ${esc(e.message)}</div>`;
+  }
+}
+
+function renderReportCardUI(el, rc, entities) {
+  el.innerHTML = `
+    <div class="rc-week-label">สัปดาห์ที่เริ่ม ${rc.weekStart}</div>
+    <div class="rc-grid">
+      ${(rc.grades || []).map(g => {
+        const e = entities.find(x => x.id === g.entityId);
+        const gradeClass = (g.grade || '').replace('+', 'plus');
+        return `<div class="rc-card">
+          <div class="rc-entity" style="color:${e?.color_primary || 'var(--accent-deep)'}">
+            ${esc(e?.icon || '🌙')} ${esc(e?.name || '')}
+          </div>
+          <div class="rc-topic">${esc(g.topic)}</div>
+          <div class="rc-grade grade-${gradeClass}">${esc(g.grade)}</div>
+          <div class="rc-comment">"${esc(g.comment)}"</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
 
 // ── Background auto-update ────────────────────────────────────────────────────
 

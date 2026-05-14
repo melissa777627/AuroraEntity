@@ -29,7 +29,7 @@ const SLOTS = [
   { id: 'morning',   startRange: [7*60, 9*60+30] },
   { id: 'afternoon', startRange: [12*60, 14*60+30] },
   { id: 'night',     startRange: [19*60, 21*60+30] },
-  { id: 'latenight', startRange: [22*60, 23*60+30] },
+  { id: 'latenight', startRange: [23*60, 23*60+30] },
 ];
 
 const REVEAL_INTERVAL_MIN = 11;

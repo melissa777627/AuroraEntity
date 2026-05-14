@@ -153,6 +153,7 @@ export function hasUnreadLounge() {
   if (hasUnreadPostcard()) return true;
   if (hasUnreadMailboxReply()) return true;
   if (hasNewFavoritismEvents()) return true;
+  if (hasUnreadReportCard()) return true;
   return false;
 }
 
@@ -178,6 +179,28 @@ export function saveDailyQuestion(data) { set('daily_question', data); }
 // ── Poll ──────────────────────────────────────────────────────────────────────
 export function getDailyPoll() { return get('daily_poll') || null; }
 export function saveDailyPoll(data) { set('daily_poll', data); }
+export function getPollQuestionHistory() { return get('poll_q_history') || []; }
+export function addPollQuestionToHistory(q) {
+  update('poll_q_history', arr => [...(arr || []).slice(-6), q]);
+}
+
+// ── Handcuffs (2hr) ───────────────────────────────────────────────────────────
+export function getHandcuffs() { return get('handcuffs') || null; }
+export function saveHandcuffs(data) { set('handcuffs', data); }
+export function clearHandcuffs() { set('handcuffs', null); }
+export function isHandcuffActive() {
+  const h = getHandcuffs();
+  return !!(h && Date.now() < h.expiresAt);
+}
+
+// ── Report Card (weekly) ──────────────────────────────────────────────────────
+export function getReportCard() { return get('report_card') || null; }
+export function saveReportCard(data) { set('report_card', data); }
+export function hasUnreadReportCard() {
+  const rc = getReportCard();
+  if (!rc?.weekStart) return false;
+  return !rc.seen;
+}
 
 // ── Mailbox ───────────────────────────────────────────────────────────────────
 export function getMailbox() { return get('mailbox') || []; }

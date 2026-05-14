@@ -246,7 +246,19 @@ async function bgFavCheck() {
   updateMobileNav();
 }
 
+// bump this string on every deploy that should reset these features
+const CONTENT_VERSION = 'v4';
+function clearFeatureCache() {
+  if (localStorage.getItem('eo_content_version') !== CONTENT_VERSION) {
+    localStorage.removeItem('eo_daily_poll');
+    localStorage.removeItem('eo_backstage_episodes');
+    localStorage.removeItem('eo_report_card');
+    localStorage.setItem('eo_content_version', CONTENT_VERSION);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
+  clearFeatureCache();
   await seedEntities();
   renderFixed();
   prefetchBackstageEpisodes(); // generate episode ที่ถึงเวลาแล้วทันที

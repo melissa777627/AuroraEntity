@@ -3046,3 +3046,168 @@ details[open] .poll-details-summary::before { content: '▾ '; }
   background: rgba(255, 240, 245, 0.8);
   z-index: 10;
 }
+
+/* ─── ⛓️ Handcuff Banner (หน้าโฮม) ─────────────── */
+.handcuff-banner {
+  background: rgba(232,130,154,0.08);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.handcuff-banner-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+  margin-bottom: 8px;
+}
+.handcuff-pair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+.hc-chain { font-size: 1.2rem; }
+.handcuff-bicker { display: flex; flex-direction: column; gap: 6px; }
+.hc-bubble {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.hc-bubble-name { font-weight: 700; white-space: nowrap; font-size: 0.75rem; }
+.hc-bubble-text { color: var(--text-primary); }
+
+/* ─── ⛓️ Handcuff Poll Section ──────────────────── */
+.poll-handcuff-section {
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(232,130,154,0.06);
+  border: 1px dashed var(--accent);
+  border-radius: 10px;
+}
+.poll-handcuff-title { font-size: 0.78rem; font-weight: 700; color: var(--accent-deep); margin-bottom: 8px; }
+.poll-handcuff-pair { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; margin-bottom: 8px; }
+.poll-handcuff-bicker { display: flex; flex-direction: column; gap: 5px; }
+
+/* ─── ⚖️ Veto Section ───────────────────────────── */
+.poll-veto-section { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--accent); }
+.poll-veto-desc { font-size: 0.78rem; color: var(--text-soft); line-height: 1.55; margin-bottom: 10px; }
+.poll-veto-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.poll-veto-btn {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--accent);
+  background: white;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.poll-veto-btn:hover { background: var(--bg-secondary); }
+.poll-veto-loading { font-size: 0.78rem; color: var(--text-soft); font-style: italic; padding: 6px 0; }
+.poll-veto-done { font-size: 0.78rem; color: var(--accent-deep); padding: 6px 0; }
+.poll-veto-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.poll-veto-popup-inner {
+  background: white;
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.poll-veto-popup-title { font-weight: 700; margin-bottom: 12px; font-size: 0.9rem; }
+.poll-veto-msg { display: flex; gap: 10px; margin-bottom: 10px; font-size: 0.88rem; align-items: baseline; }
+.poll-veto-msg > span:first-child { font-weight: 700; white-space: nowrap; }
+
+/* ─── 📡 Court Chaos ────────────────────────────── */
+@keyframes poll-chaos-shake {
+  0%,100% { transform: rotate(0) translateX(0); }
+  20% { transform: rotate(-1.5deg) translateX(-2px); }
+  60% { transform: rotate(1.5deg) translateX(2px); }
+}
+@keyframes poll-ticker-scroll {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes chaos-stamp {
+  0%   { opacity: 0; transform: scale(2.2); }
+  30%  { opacity: 1; transform: scale(0.92); }
+  45%  { transform: scale(1.06); }
+  60%  { opacity: 1; transform: scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1); }
+}
+.poll-chaos-active { animation: poll-chaos-shake 0.25s ease infinite; }
+.poll-chaos-stamp {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+  border-radius: inherit;
+  background: rgba(255,255,255,0.15);
+}
+.poll-chaos-stamp-text {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #d63031;
+  letter-spacing: 0.06em;
+  text-shadow: 0 3px 12px rgba(214,48,49,0.35), 0 0 0 3px rgba(255,255,255,0.6);
+  animation: chaos-stamp 2.8s ease forwards;
+  transform-origin: center;
+}
+.poll-chaos-ticker-wrap {
+  overflow: hidden;
+  background: #1a1a1a;
+  color: #f0c040;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 0;
+  margin-top: 12px;
+  border-radius: 6px;
+}
+.poll-chaos-ticker {
+  display: inline-block;
+  white-space: nowrap;
+  animation: poll-ticker-scroll 14s linear infinite;
+  padding: 0 16px;
+}
+
+/* ─── 📋 สมุดพกประจาน ──────────────────────────── */
+.rc-brief { font-size: 0.78rem; color: var(--text-soft); line-height: 1.55; margin-bottom: 14px; }
+.rc-loading { text-align: center; padding: 24px; color: var(--text-soft); font-style: italic; }
+.rc-week-label { font-size: 0.72rem; color: var(--text-soft); margin-bottom: 12px; }
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.rc-card {
+  background: white;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rc-entity { font-size: 0.78rem; font-weight: 700; }
+.rc-topic { font-size: 0.72rem; color: var(--text-soft); }
+.rc-grade { font-size: 2.2rem; font-weight: 900; line-height: 1; margin: 6px 0; }
+.rc-grade.grade-Aplus { color: #1a7a3e; }
+.rc-grade.grade-A { color: #2e9d5a; }
+.rc-grade.grade-B { color: #5a9e6b; }
+.rc-grade.grade-C { color: #b07e00; }
+.rc-grade.grade-D { color: #c07030; }
+.rc-grade.grade-F { color: #c0616b; }
+.rc-comment { font-size: 0.74rem; color: var(--text-soft); font-style: italic; line-height: 1.4; }

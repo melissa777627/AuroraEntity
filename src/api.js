@@ -1,5 +1,5 @@
 import { getSettings } from './storage.js';
-import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
+import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt, buildHandcuffBickerPrompt, buildPollChaosPrompt, buildVetoGrumblePrompt, buildReportCardPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -483,13 +483,13 @@ export async function callPatternReading(entity, readings) {
 }
 
 // ── ศาลเตี้ยชี้ตัว ────────────────────────────────────────────────────────────
-export async function callPollQuestion(entities) {
+export async function callPollQuestion(entities, history = []) {
   const { key, model } = cfg();
   const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: buildPollQuestionPrompt(entities) }] }],
+      contents: [{ role: 'user', parts: [{ text: buildPollQuestionPrompt(entities, history) }] }],
       generationConfig: { temperature: 0.92, maxOutputTokens: 100, thinkingConfig: { thinkingBudget: 0 } }
     })
   });
@@ -688,4 +688,77 @@ export async function callMidnightReply(entity, userMessage, card) {
   const data = await res.json();
   const rparts = data.candidates?.[0]?.content?.parts || [];
   return (rparts.find(p => !p.thought)?.text || rparts[0]?.text || '').trim();
+}
+
+// ── ศาลเตี้ยชี้ตัว — Gimmicks ────────────────────────────────────────────────
+export async function callHandcuffBicker(entityA, entityB) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildHandcuffBickerPrompt(entityA, entityB) }] }],
+      generationConfig: { temperature: 0.92, maxOutputTokens: 300, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const m = clean.match(/\[[\s\S]*\]/);
+  if (m) clean = m[0];
+  return (() => { try { return JSON.parse(clean); } catch { return []; } })();
+}
+
+export async function callPollChaos(entities, question, tiedNames) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildPollChaosPrompt(entities, question, tiedNames) }] }],
+      generationConfig: { temperature: 0.95, maxOutputTokens: 80, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  return (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+}
+
+export async function callVetoGrumble(grumpyEntities, pardonedName, question) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildVetoGrumblePrompt(grumpyEntities, pardonedName, question) }] }],
+      generationConfig: { temperature: 0.90, maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const m = clean.match(/\[[\s\S]*\]/);
+  if (m) clean = m[0];
+  return (() => { try { return JSON.parse(clean); } catch { return []; } })();
+}
+
+export async function callReportCard(entries, entities) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildReportCardPrompt(entries, entities) }] }],
+      generationConfig: { temperature: 0.88, maxOutputTokens: 1000, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const m = clean.match(/\[[\s\S]*\]/);
+  if (m) clean = m[0];
+  return (() => { try { return JSON.parse(clean); } catch { return []; } })();
 }
