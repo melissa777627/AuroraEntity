@@ -177,11 +177,12 @@ function renderEpisode(episode, allEntities, prevCount = 0) {
       : entityStyle(m.entityId);
     const reaction = episode.reactions?.[i];
     const reactionBadge = reaction ? `<div class="bs-reaction-badge">${reaction}</div>` : '';
+    const reactBtn = !m.whisper ? `<button class="bs-react-btn">${reaction || '+'}</button>` : '';
     const whisperClass = m.whisper ? ' bs-whisper' : '';
     const bubbleContent = isNew
       ? `<div class="bs-bubble bs-typewriter${whisperClass}" data-fulltext="${esc(m.text).replace(/"/g, '&quot;')}"></div>`
       : `<div class="bs-bubble${whisperClass}">${esc(m.text)}</div>`;
-    return `<div class="bs-msg-group${showHeader ? '' : ' bs-continued'}" data-ep-id="${episode.id}" data-msg-idx="${i}" style="${styleStr}">${header}<div class="bs-bubble-row">${bubbleContent}</div>${reactionBadge}</div>`;
+    return `<div class="bs-msg-group${showHeader ? '' : ' bs-continued'}" data-ep-id="${episode.id}" data-msg-idx="${i}" style="${styleStr}">${header}<div class="bs-bubble-row">${bubbleContent}${reactBtn}</div>${reactionBadge}</div>`;
   }).join('');
 
   const lockedHtml = '';
@@ -282,7 +283,7 @@ export async function renderBackstage(container, sub) {
       } catch {
         if (!saved.episodes.length) {
           epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
-          appendTestBtn();
+          appendSpecialSection([]);
           return;
         }
       }
@@ -443,7 +444,14 @@ export async function renderBackstage(container, sub) {
     if (newBubbles.length) runTypewriters(newBubbles);
   }
 
-  await generateAndRender(false);
+  try {
+    await generateAndRender(false);
+  } catch {
+    if (!epContainer.hasChildNodes()) {
+      epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
+      appendSpecialSection([]);
+    }
+  }
 
   // ── Emoji reactions ──
   const EMOJIS = ['❤️', '😂', '😮', '😢', '💀', '🙄', '🥹', '👀'];
@@ -471,8 +479,8 @@ export async function renderBackstage(container, sub) {
       return;
     }
 
-    // Bubble click — open/close picker
-    const bubble = e.target.closest('.bs-bubble:not(.bs-typing)');
+    // Bubble or react-btn click — open/close picker
+    const bubble = e.target.closest('.bs-bubble:not(.bs-typing), .bs-react-btn');
     const group = bubble?.closest('[data-msg-idx]');
 
     if (activePicker) {

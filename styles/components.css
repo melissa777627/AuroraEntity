@@ -2475,7 +2475,25 @@
   color: var(--bs-c);
 }
 
-.bs-bubble-row { padding-left: 26px; }
+.bs-bubble-row { padding-left: 26px; display: flex; align-items: center; gap: 6px; }
+.bs-react-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1.5px dashed var(--border, #ddd);
+  border-radius: 99px;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+.bs-react-btn:hover, .bs-react-btn:active { opacity: 1; border-color: var(--accent); }
 .bs-bubble {
   display: inline-block;
   background: var(--bs-bg);
