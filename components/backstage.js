@@ -43,6 +43,13 @@ function todayBKK() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
 }
 
+// ก่อน 7am ให้นับเป็นวันก่อนหน้า (เพื่อให้ episode ดึกยังแสดงหลังเที่ยงคืน)
+function backstageDateKey() {
+  const { hour } = bkkParts();
+  const base = hour < 7 ? new Date(Date.now() - 86400000) : new Date();
+  return base.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+}
+
 function bkkParts(date = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Bangkok',
@@ -245,7 +252,7 @@ export async function renderBackstage(container, sub) {
     return;
   }
 
-  const today = todayBKK();
+  const today = backstageDateKey();
   const nowMin = nowMinutesBKK();
   let saved = getBackstageEpisodes();
 
@@ -488,7 +495,7 @@ export async function prefetchBackstageEpisodes() {
   const allEntities = getEntities();
   if (!allEntities.length) return;
 
-  const today = todayBKK();
+  const today = backstageDateKey();
   const nowMin = nowMinutesBKK();
   let saved = getBackstageEpisodes();
   if (!saved || saved.date !== today || saved.version !== BS_DATA_VERSION) saved = { version: BS_DATA_VERSION, date: today, episodes: [] };
