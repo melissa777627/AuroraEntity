@@ -283,7 +283,6 @@ export async function renderBackstage(container, sub) {
       } catch {
         if (!saved.episodes.length) {
           epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
-          appendSpecialSection([]);
           return;
         }
       }
@@ -301,6 +300,13 @@ export async function renderBackstage(container, sub) {
     hint.className = 'bs-generating';
     hint.textContent = 'กำลังแอบดู...';
     div.appendChild(hint);
+
+    let secs = 0;
+    const timer = setInterval(() => {
+      if (!document.contains(hint)) { clearInterval(timer); return; }
+      secs++;
+      hint.textContent = `กำลังแอบดู... (${secs} วิ)`;
+    }, 1000);
 
     const widths = [60, 75, 45, 82, 55, 70, 40, 68];
     const skeletonEntities = shuffle(entities);
@@ -345,54 +351,6 @@ export async function renderBackstage(container, sub) {
     typingInProgress = false;
   }
 
-  function appendSpecialSection(newBubbles) {
-    const section = document.createElement('div');
-    section.className = 'bs-special-section';
-
-    const label = document.createElement('div');
-    label.className = 'bs-special-label';
-    label.textContent = '✦ รอบพิเศษ';
-    section.appendChild(label);
-
-    if (saved.specialEpisode) {
-      const prevCount = epRenderedCounts[saved.specialEpisode.id] || 0;
-      epRenderedCounts[saved.specialEpisode.id] = saved.specialEpisode.messages.length;
-      const div = document.createElement('div');
-      div.className = 'bs-episode';
-      div.innerHTML = renderEpisode(saved.specialEpisode, allEntities, prevCount);
-      div.querySelectorAll('.bs-typewriter').forEach(b => newBubbles.push(b));
-      section.appendChild(div);
-    }
-
-    const genBtn = document.createElement('button');
-    genBtn.className = 'btn btn-secondary bs-special-btn';
-    genBtn.textContent = saved.specialEpisode ? '↺ ขอรอบพิเศษใหม่' : '✦ ขอรอบพิเศษ';
-    genBtn.addEventListener('click', async () => {
-      genBtn.disabled = true;
-      genBtn.textContent = '⏳';
-      const mainEntities = pickEntities(allEntities);
-      const loadDiv = document.createElement('div');
-      loadDiv.className = 'bs-episode';
-      section.insertBefore(loadDiv, genBtn);
-      showGeneratingState(loadDiv, mainEntities);
-      try {
-        const ep = await generateEpisode({ id: 'special', startRange: [0, 1] }, allEntities, cardsPool, mainEntities);
-        ep.id = 'ep_special';
-        ep.startTime = Date.now() - 24 * 60 * 60 * 1000;
-        saved.specialEpisode = ep;
-        saveBackstageEpisodes(saved);
-        drawEpisodes();
-      } catch {
-        loadDiv.remove();
-        genBtn.disabled = false;
-        genBtn.textContent = saved.specialEpisode ? '↺ ขอรอบพิเศษใหม่' : '✦ ขอรอบพิเศษ';
-        window.showToast?.('มีคนขวางไม่ให้ดู — ลองอีกครั้ง', 'error');
-      }
-    });
-    section.appendChild(genBtn);
-    epContainer.appendChild(section);
-  }
-
   function drawEpisodes() {
     if (typingInProgress) return;
     epContainer.innerHTML = '';
@@ -402,7 +360,6 @@ export async function renderBackstage(container, sub) {
         <div class="backstage-empty">
           <p>บทสนทนายังไม่เริ่ม — กลับมาใหม่หลัง ${formatTime(SLOTS[0].startRange[0])} น.</p>
         </div>`;
-      appendSpecialSection([]);
       return;
     }
 
@@ -449,7 +406,6 @@ export async function renderBackstage(container, sub) {
   } catch {
     if (!epContainer.hasChildNodes()) {
       epContainer.innerHTML = `<div class="backstage-empty"><p>มีคนขวางไม่ให้ดู — ลองอีกครั้ง</p></div>`;
-      appendSpecialSection([]);
     }
   }
 
