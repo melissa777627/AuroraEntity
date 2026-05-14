@@ -197,6 +197,8 @@ export function hasUnreadMailboxReply() {
 // ── Favoritism ────────────────────────────────────────────────────────────────
 export function getFavoritism() { return get('favoritism') || null; }
 export function saveFavoritism(data) { set('favoritism', data); }
+export function getFavSummary() { return get('fav_summary') || null; }
+export function saveFavSummary(data) { set('fav_summary', data); }
 
 // ── Midnight Chat ─────────────────────────────────────────────────────────────
 export function getMidnightChat() { return get('midnight_chat') || null; }

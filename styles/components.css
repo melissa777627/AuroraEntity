@@ -2521,6 +2521,7 @@
   opacity: 0.4;
   letter-spacing: 0.04em;
 }
+.bs-whisper { opacity: 0.35; font-style: italic; }
 
 .bs-episode-collapsed {
   margin-bottom: 0;
@@ -2871,6 +2872,18 @@ details[open] .poll-details-summary::before { content: '▾ '; }
 .mailbox-history-preview { font-style: italic; }
 
 /* ─── บอร์ดคะแนน ────────────────────────────── */
+@keyframes fav-row-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fav-event-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fav-newest-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240, 192, 64, 0); }
+  50%       { box-shadow: 0 0 0 5px rgba(240, 192, 64, 0.2); }
+}
 .fav-board { max-width: 480px; }
 .fav-rank-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .fav-rank-row {
@@ -2881,6 +2894,7 @@ details[open] .poll-details-summary::before { content: '▾ '; }
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
+  animation: fav-row-in 0.32s ease both;
 }
 .fav-rank-num {
   font-size: 1rem;
@@ -2897,7 +2911,7 @@ details[open] .poll-details-summary::before { content: '▾ '; }
 .fav-rank-body { flex: 1; min-width: 0; }
 .fav-rank-name { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); }
 .fav-rank-bar-wrap { height: 5px; background: var(--bg-secondary); border-radius: 3px; margin-top: 4px; overflow: hidden; }
-.fav-rank-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.fav-rank-bar { height: 100%; border-radius: 3px; transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 .fav-rank-score { font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
 .fav-events-title {
   font-size: 0.72rem;
@@ -2913,11 +2927,14 @@ details[open] .poll-details-summary::before { content: '▾ '; }
   margin-bottom: 6px;
   border-left: 3px solid transparent;
   transition: border-color 0.2s;
+  animation: fav-event-in 0.28s ease both;
 }
 .fav-event-row.newest {
   border-left-color: #f0c040;
   background: rgba(240, 192, 64, 0.07);
+  animation: fav-newest-pulse 1.8s ease 0.4s 2;
 }
+.fav-ev-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .fav-ev-actors {
   display: flex;
   align-items: center;
@@ -2929,7 +2946,17 @@ details[open] .poll-details-summary::before { content: '▾ '; }
 .fav-ev-actor { font-weight: 700; }
 .fav-ev-arrow { color: var(--text-soft); font-size: 0.75rem; }
 .fav-ev-target { font-size: 0.8rem; }
-.fav-ev-delta { font-weight: 700; font-size: 1rem; display: block; margin-bottom: 3px; }
+.fav-ev-delta { font-weight: 700; font-size: 1rem; }
+.fav-ev-latest-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #b07e00;
+  background: rgba(240, 192, 64, 0.18);
+  border: 1px solid rgba(240, 192, 64, 0.4);
+  border-radius: 99px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+}
 .fav-ev-delta.plus { color: #2e9d5a; }
 .fav-ev-delta.minus { color: #c0616b; }
 .fav-ev-reason { font-size: 0.78rem; color: var(--text-soft); line-height: 1.4; }
@@ -2951,7 +2978,13 @@ details[open] .poll-details-summary::before { content: '▾ '; }
 }
 .fav-loading { text-align: center; color: var(--text-soft); padding: 24px; font-style: italic; }
 .fav-brief { font-size: 0.78rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 14px; }
+.fav-no-events { font-size: 0.78rem; color: var(--text-soft); font-style: italic; text-align: center; padding: 10px 0; }
 .fav-empty-events { text-align: center; padding: 12px 0 4px; }
+.fav-countdown { font-size: 0.75rem; color: var(--accent-deep); text-align: center; padding: 6px 0 2px; opacity: 0.8; letter-spacing: 0.02em; }
+.fav-summary-comments { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.fav-summary-comment { border-left: 3px solid var(--accent); padding: 8px 10px; background: var(--bg-secondary); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.fav-summary-who { font-size: 0.78rem; font-weight: 600; display: block; margin-bottom: 3px; }
+.fav-summary-text { font-size: 0.85rem; color: var(--text-primary); line-height: 1.55; }
 
 /* ─── Midnight Chat ─────────────────────────── */
 .midnight-section { margin-top: 24px; border-top: 1px dashed rgba(100,80,120,0.2); padding-top: 16px; }

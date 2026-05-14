@@ -1,5 +1,5 @@
-import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism, hasUnreadPostcard, hasUnreadMailboxReply, hasNewFavoritismEvents } from '../src/storage.js';
-import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callPollReaction, callMailboxReply, callFavoritism } from '../src/api.js';
+import { getEntities, getSettings, getReadingsByEntity, getManifestLetters, saveManifestLetter, getDailyPostcard, saveDailyPostcard, getDailyGuess, saveDailyGuess, getDailyActivity, saveDailyActivity, getComfortHistory, addComfortToHistory, getDailyQuestion, saveDailyQuestion, getDailyPoll, saveDailyPoll, getMailbox, addMailboxLetter, updateMailboxLetter, getFavoritism, saveFavoritism, getFavSummary, saveFavSummary, hasUnreadPostcard, hasUnreadMailboxReply, hasNewFavoritismEvents } from '../src/storage.js';
+import { callManifestLetter, callPostcard, callGuess, callGuessReaction, callActivity, callComfort, callDailyQuestion, callDailyQuestionFeedback, callPollQuestion, callPollEntityVotes, callPollReaction, callMailboxReply, callFavoritism, callFavSummary } from '../src/api.js';
 
 const LOUNGE_MENUS = [
   { sub: 'postcard',   icon: '📮', name: 'โปสการ์ดวันนี้',           desc: 'วันนี้พี่อยากส่งอะไรมาให้ — เปิดดูซิ' },
@@ -972,10 +972,32 @@ async function applyFavEvents(entities, fav) {
   return { ...fav, events: [...(fav.events || []), ...timestamped].slice(-20), lastUpdated: nowMs };
 }
 
+const FAV_BOARD_VERSION = 1;
 const FAV_INTERVAL_MIN_MS = 2 * 60 * 60 * 1000;
-const FAV_INTERVAL_MAX_MS = 3 * 60 * 60 * 1000;
+const FAV_INTERVAL_MAX_MS = 4 * 60 * 60 * 1000;
 function randomFavInterval() {
   return FAV_INTERVAL_MIN_MS + Math.random() * (FAV_INTERVAL_MAX_MS - FAV_INTERVAL_MIN_MS);
+}
+
+async function initFavWeek(entities, today, nowMs) {
+  const counts = entities.map(e => {
+    const readings = getReadingsByEntity(e.id);
+    const msgCount = readings.reduce((sum, r) => sum + (r.messages?.length || 0), 0);
+    return { entityId: e.id, count: msgCount };
+  });
+  const maxCount = Math.max(...counts.map(c => c.count), 1);
+  const scores = counts.map(c => ({
+    entityId: c.entityId,
+    score: Math.round(30 + (c.count / maxCount) * 70),
+  }));
+  let fav = { boardVersion: FAV_BOARD_VERSION, weekStart: today, scores, events: [], lastViewed: nowMs, nextUpdateAt: nowMs + randomFavInterval() };
+  saveFavoritism(fav);
+  try {
+    fav = await applyFavEvents(entities, fav);
+    fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
+    saveFavoritism(fav);
+  } catch {}
+  return getFavoritism() || fav;
 }
 
 async function renderFavoritismSection(container, entities) {
@@ -985,25 +1007,19 @@ async function renderFavoritismSection(container, entities) {
   const nowMs = Date.now();
 
   let fav = getFavoritism();
-  const isWeekReset = !fav || !fav.weekStart || (nowMs - new Date(fav.weekStart).getTime()) > 7 * 86400000;
+  const isFirstTime = !fav || !fav.weekStart || fav.boardVersion !== FAV_BOARD_VERSION;
+  const weekEndMs = fav ? new Date(fav.weekStart).getTime() + 7 * 86400000 : 0;
+  const isWeekUp = !isFirstTime && nowMs >= weekEndMs;
 
-  if (isWeekReset) {
-    const counts = entities.map(e => ({ entityId: e.id, count: getReadingsByEntity(e.id).length }));
-    const maxCount = Math.max(...counts.map(c => c.count), 1);
-    const scores = counts.map(c => ({
-      entityId: c.entityId,
-      score: Math.round(30 + (c.count / maxCount) * 70),
-    }));
-    fav = { weekStart: today, scores, events: [], lastViewed: nowMs, nextUpdateAt: nowMs + randomFavInterval() };
-    saveFavoritism(fav);
-    try {
-      fav = await applyFavEvents(entities, fav);
-      fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
-      saveFavoritism(fav);
-    } catch {}
+  if (isWeekUp) {
+    await renderFavSummaryMode(container, fav, entities, today, nowMs);
+    return;
   }
 
-  // migrate from old todaySchedule format
+  if (isFirstTime) {
+    fav = await initFavWeek(entities, today, nowMs);
+  }
+
   if (!fav.nextUpdateAt) {
     fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
     saveFavoritism(fav);
@@ -1016,7 +1032,7 @@ async function renderFavoritismSection(container, entities) {
     }
   });
 
-  if (!isWeekReset && nowMs >= fav.nextUpdateAt) {
+  if (nowMs >= fav.nextUpdateAt) {
     try {
       fav = await applyFavEvents(entities, fav);
       fav = { ...fav, nextUpdateAt: nowMs + randomFavInterval() };
@@ -1030,10 +1046,15 @@ async function renderFavoritismSection(container, entities) {
 
   renderFavoritismUI(container, fav, entities, prevLastViewed);
 
-  // auto-refresh every 5 min while on page — catches the 2-3h trigger without needing reload
   const intervalId = setInterval(async () => {
     const cur = getFavoritism();
-    if (!cur || Date.now() < (cur.nextUpdateAt || Infinity)) return;
+    if (!cur) { clearInterval(intervalId); return; }
+    if (Date.now() >= new Date(cur.weekStart).getTime() + 7 * 86400000) {
+      clearInterval(intervalId);
+      await renderFavoritismSection(container, entities);
+      return;
+    }
+    if (Date.now() < (cur.nextUpdateAt || Infinity)) return;
     try {
       const prev = cur.lastViewed || 0;
       let updated = await applyFavEvents(entities, cur);
@@ -1049,7 +1070,33 @@ async function renderFavoritismSection(container, entities) {
   obs.observe(document.body, { childList: true, subtree: true });
 }
 
-function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {
+async function renderFavSummaryMode(container, fav, entities, today, nowMs) {
+  let summary = getFavSummary();
+  if (!summary || summary.weekStart !== fav.weekStart) {
+    container.innerHTML = `<div class="lounge-section-title">🏆 บอร์ดคะแนน</div><div class="fav-loading">📋 กำลังสรุปผลสัปดาห์...</div>`;
+    try {
+      const comments = await callFavSummary(entities, fav);
+      summary = { weekStart: fav.weekStart, comments, generatedAt: nowMs };
+      saveFavSummary(summary);
+    } catch {
+      container.innerHTML = `
+        <div class="lounge-section-title">🏆 บอร์ดคะแนน</div>
+        <div class="fav-brief">สรุปผลไม่ได้ — ลองใหม่นะ</div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-secondary" id="fav-retry-btn">↺ ลองอีกครั้ง</button>
+          <button class="btn btn-primary" id="fav-skip-btn">✦ เริ่มสัปดาห์ใหม่เลย</button>
+        </div>`;
+      container.querySelector('#fav-retry-btn')?.addEventListener('click', () => renderFavoritismSection(container, entities));
+      container.querySelector('#fav-skip-btn')?.addEventListener('click', async () => {
+        await startNewWeek(container, entities, today, nowMs);
+      });
+      return;
+    }
+  }
+  renderFavSummaryUI(container, summary, fav, entities, today, nowMs);
+}
+
+function renderFavSummaryUI(container, summary, fav, entities, today, nowMs) {
   const sorted = [...fav.scores].sort((a, b) => b.score - a.score);
   const maxScore = sorted[0]?.score || 100;
   const rankLabels = ['gold', 'silver', 'bronze'];
@@ -1070,8 +1117,68 @@ function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {
     </div>`;
   }).join('');
 
+  const commentsHtml = (summary.comments || []).map(c => {
+    const entity = entities.find(e => e.id === c.entityId);
+    if (!entity || !c.comment) return '';
+    const color = entity.color_primary || 'var(--accent-deep)';
+    return `<div class="fav-summary-comment" style="border-left-color:${color}">
+      <span class="fav-summary-who" style="color:${color}">${esc(entity.icon || '🌙')} ${esc(entity.name)}</span>
+      <span class="fav-summary-text">${esc(c.comment)}</span>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="lounge-section-title">🏆 สรุปผลสัปดาห์</div>
+    <div class="fav-brief">คะแนนความดีความชอบของบ้านสัปดาห์นี้ — ปิดแล้ว</div>
+    <div class="fav-board">
+      <div class="fav-rank-list">${rankHtml}</div>
+      <div class="fav-events-title">— พี่ๆ มีอะไรจะพูด —</div>
+      <div class="fav-summary-comments">${commentsHtml || '<div class="fav-brief" style="padding:8px 0">เงียบทุกคน</div>'}</div>
+      <button class="btn btn-primary" id="fav-new-week-btn" style="margin-top:16px;width:100%">✦ เริ่มสัปดาห์ใหม่</button>
+    </div>`;
+
+  container.querySelector('#fav-new-week-btn')?.addEventListener('click', async () => {
+    const btn = container.querySelector('#fav-new-week-btn');
+    btn.disabled = true; btn.textContent = '⏳ กำลังเริ่ม...';
+    await startNewWeek(container, entities, today, nowMs);
+  });
+}
+
+async function startNewWeek(container, entities, today, nowMs) {
+  container.innerHTML = `<div class="lounge-section-title">🏆 บอร์ดคะแนน</div><div class="fav-loading">🏆 กำลังเริ่มสัปดาห์ใหม่...</div>`;
+  const fav = await initFavWeek(entities, today, nowMs);
+  const prevLastViewed = fav.lastViewed || 0;
+  renderFavoritismUI(container, fav, entities, prevLastViewed);
+}
+
+function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {
+  const nowMs = Date.now();
+  const weekEndMs = fav.weekStart ? new Date(fav.weekStart).getTime() + 7 * 86400000 : nowMs;
+  const daysLeft = Math.max(1, Math.ceil((weekEndMs - nowMs) / 86400000));
+
+  const sorted = [...fav.scores].sort((a, b) => b.score - a.score);
+  const maxScore = sorted[0]?.score || 100;
+  const rankLabels = ['gold', 'silver', 'bronze'];
+
+  const rankHtml = sorted.map((s, i) => {
+    const entity = entities.find(e => e.id === s.entityId);
+    if (!entity) return '';
+    const pct = Math.round((s.score / maxScore) * 100);
+    const color = entity.color_primary || 'var(--accent-deep)';
+    return `<div class="fav-rank-row" style="animation-delay:${(0.04 + i * 0.07).toFixed(2)}s">
+      <div class="fav-rank-num ${rankLabels[i] || ''}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</div>
+      <div class="fav-rank-icon">${esc(entity.icon || '🌙')}</div>
+      <div class="fav-rank-body">
+        <div class="fav-rank-name">${esc(entity.name)}</div>
+        <div class="fav-rank-bar-wrap"><div class="fav-rank-bar" data-w="${pct}" style="width:0;background:${color}"></div></div>
+      </div>
+      <div class="fav-rank-score" style="color:${color}">${s.score}</div>
+    </div>`;
+  }).join('');
+
   const recentEvents = (fav.events || []).slice(-5);
-  const eventsHtml = recentEvents.length ? recentEvents.map(ev => {
+  const lastEvIdx = recentEvents.length - 1;
+  const eventsHtml = recentEvents.length ? recentEvents.map((ev, i) => {
     const actor = entities.find(e => e.id === (ev.actorId || ev.entityId));
     const target = entities.find(e => e.id === (ev.targetId || ev.actorId || ev.entityId));
     const actorColor = actor?.color_primary || 'var(--accent-deep)';
@@ -1079,53 +1186,51 @@ function renderFavoritismUI(container, fav, entities, prevLastViewed = 0) {
     const plus = ev.delta >= 0;
     const isSelf = (ev.actorId || ev.entityId) === (ev.targetId || ev.actorId || ev.entityId);
     const isNewest = (ev.timestamp || 0) > prevLastViewed;
-    const actionLabel = isSelf
-      ? `<span class="fav-ev-self-tag">เพิ่มให้ตัวเอง</span>`
-      : `<span class="fav-ev-sabotage-tag">แอบลด</span>`;
-    return `<div class="fav-event-row${isNewest ? ' newest' : ''}">
-      <span class="fav-ev-delta ${plus ? 'plus' : 'minus'}">${plus ? '+' : ''}${ev.delta}</span>
+    const isLast = i === lastEvIdx;
+    return `<div class="fav-event-row${isNewest ? ' newest' : ''}" style="animation-delay:${(i * 0.06).toFixed(2)}s">
+      <div class="fav-ev-header">
+        <span class="fav-ev-delta ${plus ? 'plus' : 'minus'}">${plus ? '+' : ''}${ev.delta}</span>
+        ${isLast ? '<span class="fav-ev-latest-badge">✎ ล่าสุด</span>' : ''}
+      </div>
       <div class="fav-ev-actors">
         <span class="fav-ev-actor" style="color:${actorColor}">${esc(actor?.icon || '?')} ${esc(actor?.name || '?')}</span>
         ${!isSelf ? `<span class="fav-ev-arrow">→</span><span class="fav-ev-target" style="color:${targetColor}">${esc(target?.icon || '?')} ${esc(target?.name || '?')}</span>` : ''}
       </div>
       <div class="fav-ev-reason">${esc(ev.reason)}</div>
     </div>`;
-  }).join('') : `<div class="fav-empty-events"><button class="btn btn-secondary btn-sm" id="fav-spin-btn">✦ ปั่นบอร์ดเดี๋ยวนี้</button></div>`;
+  }).join('') : `<div class="fav-no-events">ยังไม่มีการแก้ไขสัปดาห์นี้</div>`;
 
-  const lastEditor = recentEvents.length ? entities.find(e => e.id === (recentEvents.at(-1)?.actorId || recentEvents.at(-1)?.entityId)) : null;
-  const footerHtml = lastEditor
-    ? `<div class="fav-footer" style="color:${lastEditor.color_primary || 'var(--text-soft)'}">แก้ล่าสุดโดย ${esc(lastEditor.icon || '?')} ${esc(lastEditor.name)}</div>`
-    : '';
 
   container.innerHTML = `
     <div class="lounge-section-title">🏆 บอร์ดคะแนน</div>
+    <div class="fav-countdown">เหลืออีก ${daysLeft} วัน จะสรุปคะแนนความดีความชอบของบ้าน</div>
     <div class="fav-brief">คะแนนความดีความชอบ แต่ดูเหมือนทุกคนจะมีปากกาไวท์บอร์ดเป็นของตัวเอง...</div>
     <div class="fav-board">
       <div class="fav-rank-list">${rankHtml}</div>
       <div class="fav-events-title">— บันทึกการแก้ไข —</div>
       ${eventsHtml}
-      ${footerHtml}
     </div>`;
 
-  const spinBtn = container.querySelector('#fav-spin-btn');
-  if (spinBtn) {
-    spinBtn.addEventListener('click', async () => {
-      spinBtn.disabled = true;
-      spinBtn.textContent = '⏳ กำลังปั่น...';
-      try {
-        let cur = getFavoritism();
-        const prev = cur.lastViewed || 0;
-        cur = await applyFavEvents(entities, cur);
-        cur = { ...cur, lastViewed: Date.now() };
-        saveFavoritism(cur);
-        renderFavoritismUI(container, cur, entities, prev);
-      } catch(err) {
-        spinBtn.disabled = false;
-        spinBtn.textContent = '✦ ปั่นบอร์ดเดี๋ยวนี้';
-        window.showToast?.('ปั่นไม่ได้ — ' + (err?.message || 'ลองใหม่'), 'error');
-      }
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.fav-rank-bar[data-w]').forEach(bar => {
+      bar.style.width = bar.dataset.w + '%';
     });
-  }
+  });
+
+}
+
+
+// ── Background auto-update ────────────────────────────────────────────────────
+
+export async function tryBgFavUpdate(entities) {
+  const fav = getFavoritism();
+  if (!fav?.weekStart || !fav.scores?.length) return;
+  if (Date.now() < (fav.nextUpdateAt || Infinity)) return;
+  try {
+    let updated = await applyFavEvents(entities, fav);
+    updated = { ...updated, nextUpdateAt: Date.now() + randomFavInterval() };
+    saveFavoritism(updated);
+  } catch {}
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

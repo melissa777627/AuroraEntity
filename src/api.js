@@ -1,5 +1,5 @@
 import { getSettings } from './storage.js';
-import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
+import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -412,7 +412,7 @@ export async function callBackstage(entities, cards, tones, gimmick, interjectio
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: buildBackstagePrompt(entities, cards, tones, gimmick, interjection) }] }],
-      generationConfig: { temperature: 0.92, maxOutputTokens: Math.max(1500, entities.length * 500), responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+      generationConfig: { temperature: 0.78, maxOutputTokens: Math.max(1500, entities.length * 500), responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
     })
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
@@ -593,6 +593,27 @@ export async function callFavoritism(entities, currentScores, entityCards = []) 
   const parsed = (() => { try { return JSON.parse(clean); } catch { return []; } })();
   if (!Array.isArray(parsed) || !parsed.length) throw new Error('favoritism events ว่าง');
   return parsed;
+}
+
+// ── สรุปผลสัปดาห์ ─────────────────────────────────────────────────────────────
+export async function callFavSummary(entities, fav) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: buildFavSummaryPrompt(entities, fav) }] }],
+      generationConfig: { temperature: 0.9, maxOutputTokens: 800, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `API Error ${res.status}`); }
+  const data = await res.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = (parts.find(p => !p.thought)?.text || parts[0]?.text || '[]').trim();
+  let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  const mx = clean.match(/\[[\s\S]*\]/);
+  if (mx) clean = mx[0];
+  return (() => { try { return JSON.parse(clean); } catch { return []; } })();
 }
 
 // ── Midnight Chat ─────────────────────────────────────────────────────────────

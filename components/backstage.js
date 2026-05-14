@@ -21,8 +21,8 @@ const INCOMPATIBLE_MIXES = [
   ['drift ออกนอกเรื่อง', 'วางแผนแอบช่วย'],
 ];
 
-const GIMMICKS = ['A', 'B', 'E', null, null, null];
-const INTERJECTION_TYPES = [1,2,3,4,5,6,7,8,9,10];
+const GIMMICKS = ['A','B','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U'];
+const INTERJECTION_TYPES = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25];
 const BS_DATA_VERSION = 2;
 
 const SLOTS = [
@@ -43,17 +43,27 @@ function todayBKK() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
 }
 
+function bkkParts(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = fmt.formatToParts(date);
+  const get = t => parseInt(parts.find(p => p.type === t)?.value ?? '0', 10);
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') };
+}
+
 function nowMinutesBKK() {
-  const now = new Date();
-  const bkk = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-  return bkk.getHours() * 60 + bkk.getMinutes();
+  const { hour, minute } = bkkParts();
+  return hour * 60 + minute;
 }
 
 function todayStartMs() {
-  const d = new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' });
-  const bkk = new Date(d);
-  bkk.setHours(0, 0, 0, 0);
-  return bkk.getTime() - (bkk.getTimezoneOffset() * 60000);
+  const { year, month, day } = bkkParts();
+  const pad = n => String(n).padStart(2, '0');
+  return Date.parse(`${year}-${pad(month)}-${pad(day)}T00:00:00+07:00`);
 }
 
 function buildSlotStartTime(slot) {
@@ -77,16 +87,22 @@ function pickEntities(all) {
   return shuffle(all).slice(0, count);
 }
 
-function pickInterjector(mainEntityIds, all) {
+function pickInterjector(mainEntityIds, all, interjType) {
   const others = all.filter(e => !mainEntityIds.includes(e.id));
-  return others.length ? pick(others) : null;
+  if (!others.length) return null;
+  const outgoingTypes = [1, 3, 6, 7, 9, 11, 12, 13, 15, 20, 23, 25];
+  if (outgoingTypes.includes(interjType)) {
+    const loud = others.filter(e => /ซน|เฮฮา|กวนตีน|แซว|พลังงานสูง|วุ่นวาย|ตลก|แรง/.test(e.personality || ''));
+    if (loud.length) return pick(loud);
+  }
+  return pick(others);
 }
 
 async function generateEpisode(slot, allEntities, cardsPool, mainEntities) {
   if (!mainEntities) mainEntities = pickEntities(allEntities);
   const mainIds = mainEntities.map(e => e.id);
   const tones = pickTones();
-  const gimmick = Math.random() < 0.5 ? pick(GIMMICKS) : null;
+  const gimmick = Math.random() < 0.4 ? pick(GIMMICKS) : null;
 
   const cards = mainEntities.map(() => pick(cardsPool));
 
@@ -94,7 +110,7 @@ async function generateEpisode(slot, allEntities, cardsPool, mainEntities) {
   let interjection = null;
   if (useInterjection) {
     const interjType = pick(INTERJECTION_TYPES);
-    const interjector = pickInterjector(mainIds, allEntities) || pick(mainEntities);
+    const interjector = pickInterjector(mainIds, allEntities, interjType) || pick(mainEntities);
     interjection = { type: interjType, entityId: interjector.id, name: interjector.name };
   }
 
@@ -106,9 +122,6 @@ async function generateEpisode(slot, allEntities, cardsPool, mainEntities) {
   const messages = [];
   let cumDelay = 0;
   for (let i = 0; i < rawMessages.length; i++) {
-    if (i > 0 && rawMessages[i - 1]?.cliffhanger) {
-      cumDelay += revealInterval;
-    }
     messages.push({ ...rawMessages[i], revealDelay: cumDelay });
   }
 
@@ -164,26 +177,14 @@ function renderEpisode(episode, allEntities, prevCount = 0) {
       : entityStyle(m.entityId);
     const reaction = episode.reactions?.[i];
     const reactionBadge = reaction ? `<div class="bs-reaction-badge">${reaction}</div>` : '';
+    const whisperClass = m.whisper ? ' bs-whisper' : '';
     const bubbleContent = isNew
-      ? `<div class="bs-bubble bs-typewriter" data-fulltext="${esc(m.text).replace(/"/g, '&quot;')}"></div>`
-      : `<div class="bs-bubble">${esc(m.text)}</div>`;
+      ? `<div class="bs-bubble bs-typewriter${whisperClass}" data-fulltext="${esc(m.text).replace(/"/g, '&quot;')}"></div>`
+      : `<div class="bs-bubble${whisperClass}">${esc(m.text)}</div>`;
     return `<div class="bs-msg-group${showHeader ? '' : ' bs-continued'}" data-ep-id="${episode.id}" data-msg-idx="${i}" style="${styleStr}">${header}<div class="bs-bubble-row">${bubbleContent}</div>${reactionBadge}</div>`;
   }).join('');
 
-  const lastVisible = visible[visible.length - 1];
-  let lockedHtml = '';
-  if (nextLocked && lastVisible?.cliffhanger) {
-    const entity = allEntities.find(e => e.id === nextLocked.entityId);
-    const icon = esc(entity?.icon || '🌙');
-    const name = esc(entity?.name || nextLocked.entityId);
-    const style = entityStyle(nextLocked.entityId);
-    const showHeader = nextLocked.entityId !== prevId;
-    lockedHtml = `<div class="bs-msg-group" style="${style}">
-      ${showHeader ? `<div class="bs-msg-header"><span class="bs-avatar">${icon}</span><span class="bs-sender-name">${name}</span></div>` : ''}
-      <div class="bs-bubble-row"><div class="bs-bubble bs-typing"><span class="bs-dots"><span>●</span><span>●</span><span>●</span></span></div></div>
-    </div>
-    <div class="bs-peek-hint">ออกไปก่อนแล้วกลับมาเร็วๆนี้ — เดี๋ยวพี่รู้ตัว</div>`;
-  }
+  const lockedHtml = '';
 
   const endHtml = !nextLocked && visible.length === episode.messages.length
     ? `<div class="bs-end-hint">✦ บทสนทนาเงียบลงไปแล้ว</div>`
@@ -215,16 +216,6 @@ export async function renderBackstage(container, sub) {
     const h = nowHourBKK();
     if (h < 0 || h > 4) {
       midnightContent.innerHTML = `<div class="backstage-empty"><p>กลับมาอีกทีตอนกลางดึก...</p></div>`;
-      const testBtn = document.createElement('button');
-      testBtn.className = 'btn btn-ghost';
-      testBtn.style.cssText = 'margin:12px auto;display:block;font-size:0.72rem;opacity:0.45';
-      testBtn.textContent = '↺ generate ใหม่ (ทดสอบ)';
-      testBtn.addEventListener('click', async () => {
-        saveMidnightChat(null);
-        midnightContent.innerHTML = '';
-        await renderMidnightSection(midnightContent, allEntities);
-      });
-      midnightContent.appendChild(testBtn);
     } else {
       await renderMidnightSection(midnightContent, allEntities);
     }
@@ -353,17 +344,52 @@ export async function renderBackstage(container, sub) {
     typingInProgress = false;
   }
 
-  function appendTestBtn() {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-ghost';
-    btn.style.cssText = 'margin:12px auto;display:block;font-size:0.72rem;opacity:0.45';
-    btn.textContent = '↺ generate ใหม่ (ทดสอบ)';
-    btn.addEventListener('click', async () => {
-      saved.episodes = [];
-      saveBackstageEpisodes(saved);
-      await generateAndRender(true);
+  function appendSpecialSection(newBubbles) {
+    const section = document.createElement('div');
+    section.className = 'bs-special-section';
+
+    const label = document.createElement('div');
+    label.className = 'bs-special-label';
+    label.textContent = '✦ รอบพิเศษ';
+    section.appendChild(label);
+
+    if (saved.specialEpisode) {
+      const prevCount = epRenderedCounts[saved.specialEpisode.id] || 0;
+      epRenderedCounts[saved.specialEpisode.id] = saved.specialEpisode.messages.length;
+      const div = document.createElement('div');
+      div.className = 'bs-episode';
+      div.innerHTML = renderEpisode(saved.specialEpisode, allEntities, prevCount);
+      div.querySelectorAll('.bs-typewriter').forEach(b => newBubbles.push(b));
+      section.appendChild(div);
+    }
+
+    const genBtn = document.createElement('button');
+    genBtn.className = 'btn btn-secondary bs-special-btn';
+    genBtn.textContent = saved.specialEpisode ? '↺ ขอรอบพิเศษใหม่' : '✦ ขอรอบพิเศษ';
+    genBtn.addEventListener('click', async () => {
+      genBtn.disabled = true;
+      genBtn.textContent = '⏳';
+      const mainEntities = pickEntities(allEntities);
+      const loadDiv = document.createElement('div');
+      loadDiv.className = 'bs-episode';
+      section.insertBefore(loadDiv, genBtn);
+      showGeneratingState(loadDiv, mainEntities);
+      try {
+        const ep = await generateEpisode({ id: 'special', startRange: [0, 1] }, allEntities, cardsPool, mainEntities);
+        ep.id = 'ep_special';
+        ep.startTime = Date.now() - 24 * 60 * 60 * 1000;
+        saved.specialEpisode = ep;
+        saveBackstageEpisodes(saved);
+        drawEpisodes();
+      } catch {
+        loadDiv.remove();
+        genBtn.disabled = false;
+        genBtn.textContent = saved.specialEpisode ? '↺ ขอรอบพิเศษใหม่' : '✦ ขอรอบพิเศษ';
+        window.showToast?.('มีคนขวางไม่ให้ดู — ลองอีกครั้ง', 'error');
+      }
     });
-    epContainer.appendChild(btn);
+    section.appendChild(genBtn);
+    epContainer.appendChild(section);
   }
 
   function drawEpisodes() {
@@ -375,7 +401,7 @@ export async function renderBackstage(container, sub) {
         <div class="backstage-empty">
           <p>บทสนทนายังไม่เริ่ม — กลับมาใหม่หลัง ${formatTime(SLOTS[0].startRange[0])} น.</p>
         </div>`;
-      appendTestBtn();
+      appendSpecialSection([]);
       return;
     }
 
@@ -390,10 +416,9 @@ export async function renderBackstage(container, sub) {
       if (isDone && !isLast) {
         const details = document.createElement('details');
         details.className = 'bs-episode-collapsed';
-        const prevCount = epRenderedCounts[ep.id] || 0;
         details.innerHTML = `
           <summary class="bs-episode-drift">บทสนทนานี้ค่อยๆลอยไปตามลม...</summary>
-          <div class="bs-episode bs-episode-archived">${renderEpisode(ep, allEntities, prevCount)}</div>`;
+          <div class="bs-episode bs-episode-archived">${renderEpisode(ep, allEntities, Infinity)}</div>`;
         epContainer.appendChild(details);
         const div = document.createElement('div');
         div.className = 'bs-episode-divider';
@@ -414,8 +439,6 @@ export async function renderBackstage(container, sub) {
     footer.className = 'bs-footer';
     footer.textContent = '👁 กำลังแอบดูอยู่';
     epContainer.appendChild(footer);
-
-    appendTestBtn();
 
     if (newBubbles.length) runTypewriters(newBubbles);
   }
@@ -487,16 +510,13 @@ function formatTime(totalMinutes) {
 
 // ── Midnight Chat ─────────────────────────────────────────────────────────────
 function nowHourBKK() {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' })).getHours();
+  return bkkParts().hour;
 }
 
 function midnightDateKey() {
-  const bkk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-  const h = bkk.getHours();
-  if (h < 5) {
-    bkk.setDate(bkk.getDate() - 1);
-  }
-  return bkk.toLocaleDateString('en-CA');
+  const { hour } = bkkParts();
+  const date = hour < 5 ? new Date(Date.now() - 86400000) : new Date();
+  return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
 }
 
 // Generate backstage episodes in background (no DOM) — call on load + every minute

@@ -10,7 +10,7 @@ import { renderCalendar } from '../components/calendar.js';
 import { renderMulti } from '../components/multi-consult.js';
 import { renderProfilePage } from '../components/profile-modal.js';
 import { renderCardOfDayPage } from '../components/card-of-day.js';
-import { renderLounge } from '../components/lounge.js';
+import { renderLounge, tryBgFavUpdate } from '../components/lounge.js';
 import { renderCouncil } from '../components/council.js';
 import { renderGrievance } from '../components/grievance.js';
 import { renderOffering } from '../components/offering.js';
@@ -238,13 +238,23 @@ async function seedEntities() {
 }
 
 window.addEventListener('hashchange', renderFixed);
+async function bgFavCheck() {
+  const entities = getEntities();
+  if (!entities.length) return;
+  await tryBgFavUpdate(entities);
+  updateSidebar();
+  updateMobileNav();
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   await seedEntities();
   renderFixed();
   prefetchBackstageEpisodes(); // generate episode ที่ถึงเวลาแล้วทันที
   prefetchMidnightChat(); // generate ทันทีถ้าเป็นช่วงเที่ยงคืน
+  bgFavCheck(); // เช็คทันทีตอนเปิดแอป
   setInterval(prefetchBackstageEpisodes, 60000);
   setInterval(prefetchMidnightChat, 60000); // เช็คทุกนาที
+  setInterval(bgFavCheck, 15 * 60 * 1000); // เช็คทุก 15 นาที
 });
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
