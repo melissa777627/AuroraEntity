@@ -264,6 +264,11 @@ export async function renderBackstage(container, sub) {
   saved.episodes = saved.episodes.filter(ep => Date.now() - ep.startTime < 24 * 60 * 60 * 1000);
 
   async function generateAndRender(bypassTime = false) {
+    // ก่อน 7am และไม่มี episode เลย → bypass time เพื่อ generate ได้ทันที
+    if (!bypassTime && nowMin < SLOTS[0].startRange[0] && !saved.episodes.length) {
+      bypassTime = true;
+    }
+
     if (saved.episodes.length) drawEpisodes();
 
     for (const slot of SLOTS) {
