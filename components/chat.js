@@ -600,7 +600,7 @@ function bindRevoice(readingEl, reading, entity) {
   if (!reading.decode || !actions || actions.querySelector('.revoice-btn')) return;
   const btn = document.createElement('button');
   btn.className = 'btn-icon revoice-btn';
-  btn.title = 'ให้พี่พูดใหม่ (สารเดิม ไพ่เดิม)';
+  btn.title = 'อ่านไพ่ชุดนี้ใหม่ (ไพ่เดิม ถอดสารและพูดใหม่)';
   btn.textContent = '🔄';
   btn.addEventListener('click', async () => {
     const contentEl = readingEl.querySelector('.bubble-content');
@@ -610,6 +610,11 @@ function bindRevoice(readingEl, reading, entity) {
     contentEl.innerHTML = TYPING_DOTS;
     try {
       const prev = getReadingsByEntity(reading.entity_id).filter(r => r.id < reading.id).slice(-3);
+      // Same cards, fresh decode — so improvements to the decode rules apply to old readings too
+      reading.decode = await callDecode(entity, reading.context, reading.question, reading.cards || [], prev);
+      renderDecodePanel(readingEl.querySelector(`#analysis-${reading.id}`), reading);
+      readingEl.querySelector('.followup-row')?.remove();
+      bindFollowup(readingEl, reading, readingEl.closest('.chat-screen'));
       const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
         contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode) || full);
       });
