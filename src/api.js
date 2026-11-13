@@ -96,7 +96,7 @@ export async function callDecode(entity, context, question, cards, prev = []) {
 export async function callVoice(entity, context, question, decode, prev = [], onChunk) {
   const { key, model } = cfg();
   const sys = buildVoiceSystemPrompt(entity);
-  const user = buildVoiceUserPrompt(context, question, decode, prev);
+  const user = buildVoiceUserPrompt(context, question, decode, prev, entity);
   const configs = [
     { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
     // Retry without the thinking override and with more room — some models return nothing with budget 0

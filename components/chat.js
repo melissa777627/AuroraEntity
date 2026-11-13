@@ -251,10 +251,10 @@ export function renderChat(entityId, readingId, container) {
 
         contentEl.textContent = '';
         const { text: rawText, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
-          contentEl.innerHTML = formatVoice(enforceVoice(full, decode) || full);
+          contentEl.innerHTML = formatVoice(enforceVoice(full, decode, entity) || full);
           chatMessages.scrollTop = chatMessages.scrollHeight;
         });
-        const text = enforceVoice(rawText, decode) || rawText;
+        const text = enforceVoice(rawText, decode, entity) || rawText;
         contentEl.innerHTML = formatVoice(text);
 
         contentEl.classList.remove('streaming');
@@ -314,7 +314,7 @@ function appendReading(chatMessages, reading, entity) {
         <div class="entity-icon-badge">${entity.icon || '🌙'}</div>
         <span class="bubble-entity-name">${esc(entity.name)}</span>
       </div>
-      <div class="bubble-content">${formatVoice(reading.decode ? (enforceVoice(voice.content, reading.decode) || voice.content) : voice.content)}</div>
+      <div class="bubble-content">${formatVoice(reading.decode ? (enforceVoice(voice.content, reading.decode, entity) || voice.content) : voice.content)}</div>
       <div class="bubble-actions" id="actions-${reading.id}">
         ${buildBubbleActions(msgId, reading, entity, voice.content, voice.tokens)}
       </div>
@@ -616,9 +616,9 @@ function bindRevoice(readingEl, reading, entity) {
       readingEl.querySelector('.followup-row')?.remove();
       bindFollowup(readingEl, reading, readingEl.closest('.chat-screen'));
       const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
-        contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode) || full);
+        contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode, entity) || full);
       });
-      const text = enforceVoice(raw, reading.decode) || raw;
+      const text = enforceVoice(raw, reading.decode, entity) || raw;
       contentEl.innerHTML = formatVoice(text);
       const msg = reading.messages?.[0];
       if (msg) { msg.content = text; msg.tokens = usage; } else reading.messages = [{ id: `msg_${Date.now()}`, role: 'assistant', content: text, tokens: usage }];

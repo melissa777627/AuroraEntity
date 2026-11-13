@@ -168,7 +168,7 @@ export function buildVoiceSystemPrompt(entity) {
   ขึ้นบรรทัดใหม่ได้เฉพาะตอนมีจังหวะหยุดจริง (ลังเล เงียบไป) และท่าทางอยู่บรรทัดของมันเอง`;
 }
 
-export function buildVoiceUserPrompt(context, question, decode, prev) {
+export function buildVoiceUserPrompt(context, question, decode, prev, entity = null) {
   const d = decode || {};
   const line = m => {
     const tags = [];
@@ -209,7 +209,8 @@ ${nv}
 น้ำเสียง: ${d.tone || 'ปกติ'}${d.hesitation?.value ? ' / ลังเลก่อนตอบ' : ''}${d.silent ? '\nคุณเลือกที่จะเงียบ' : ''}
 
 ความยาวสูงสุด: ${d.silent ? 'ไม่พูด หรือแค่ "…"' : `${budget} ประโยคสั้น`} (ท่าทางไม่นับ) — เกินนี้ถือว่าผิด
-พูดเฉพาะสารข้างบน ห้ามเติมอะไรที่ไม่อยู่ในสาร`;
+พูดเฉพาะสารข้างบน ห้ามเติมอะไรที่ไม่อยู่ในสาร
+สรรพนามและคำลงท้าย: ใช้ตามตัวตนของคุณเท่านั้น${entity && bannedEndings(entity).length ? ` — ห้ามลงท้ายด้วย ${bannedEndings(entity).map(e => `"${e}"`).join(' ')} เด็ดขาด` : ''}`;
 }
 
 // How many short sentences the voice may use: one per spoken message,
@@ -227,8 +228,36 @@ export function sentenceBudget(d) {
 
 const TOUCH_WORDS = /ลูบ|กอด|จับมือ|จับแก้ม|หอม|จูบ|แตะ|โอบ|ดึงเข้า|ซบ|เอื้อมมือ/;
 
+// Sentence-ending particles the persona itself forbids, e.g. 'ห้ามพูดลงท้าย "คะ"' or 'ห้ามใช้ ครับ'.
+// Works for any entity: nothing is banned unless their own profile says so.
+const ENDINGS = ['คะ', 'ค่ะ', 'ครับ', 'คับ', 'จ้ะ', 'จ้า', 'ขา'];
+export function bannedEndings(entity) {
+  const persona = buildPersona(entity || {});
+  const banned = new Set();
+  for (const m of persona.matchAll(/ห้าม[^\n]{0,40}/g)) {
+    for (const e of ENDINGS) if (m[0].includes(e)) banned.add(e);
+  }
+  if (banned.has('คะ')) banned.add('ค่ะ');
+  if (banned.has('ค่ะ')) banned.add('คะ');
+  if (banned.has('ครับ')) banned.add('คับ');
+  return [...banned];
+}
+export const personaBansKa = entity => bannedEndings(entity).includes('คะ');
+
+// Strip banned particles at the end of a phrase (keeps นะ), never inside a word like "คะแนน".
+function stripEndings(text, banned) {
+  if (!banned.length) return text;
+  const alt = banned.sort((a, b) => b.length - a.length).join('|');
+  return text.replace(new RegExp(`(${alt})(?=[\\s!?…,.~)"'”]|$)`, 'gm'), '');
+}
+
+export function enforceVoice(text, d, entity = null) {
+  const out = enforceVoiceCore(text, d);
+  return entity ? stripEndings(out, bannedEndings(entity)) : out;
+}
+
 // Enforce what prompts can't guarantee: at most one short gesture, no touch unless allowed.
-export function enforceVoice(text, d) {
+function enforceVoiceCore(text, d) {
   const allowNv = d?.nonverbal?.channel && d.nonverbal.channel !== 'none';
   let seen = 0;
   return String(text || '')
