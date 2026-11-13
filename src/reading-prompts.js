@@ -188,7 +188,6 @@ export function buildVoiceSystemPrompt(entity, styleExamples = [], adult = false
 - ห้ามอธิบายแบบเล่าเรื่องว่าตัวเองกำลังเก็บ ข่ม หรือคุมความรู้สึก (เช่น "พี่พยายามสะกดอารมณ์ไว้")
   ถ้าสารบอกว่าเก็บไว้ ให้ "เก็บจริงๆ" คือพูดน้อยลง มีจังหวะหยุด
   ยกเว้น: ถ้าน้ำเสียงเป็น "ขี้เล่น/มีชั้นเชิง" จะหยอกหรือแซวเรื่องนี้แบบคนคารมดีได้ (เช่น "…ก็ต้องคุมตัวเองไว้นี่ไง") หรือเลี่ยงตอบอย่างมีลูกเล่น
-  ห้ามแตะตัวผู้ถาม (ลูบ กอด จับ หอม) เว้นแต่ระบุว่าอนุญาต
   ถ้าเป็นท่าที่แทนคำพูดได้ ตอบด้วยท่าอย่างเดียวได้
 - น้ำเสียงและความลังเล แสดงผ่านการเลือกคำและจังหวะ (เช่น "…") ห้ามเขียนบรรยายว่า "เสียงอ่อนลง"
 - ถ้าเงียบ: ตอบได้แค่ท่าทาง หรือ "…" + ท่าทาง
@@ -236,7 +235,7 @@ export function buildVoiceUserPrompt(context, question, decode, prev, entity = n
   const msgLines = groups.map(([title, items]) => `${title}:\n${items.map(x => `- ${x}`).join('\n')}`);
 
   const nv = d.nonverbal?.channel && d.nonverbal.channel !== 'none'
-    ? `ภาษากาย: ${CHANNEL_TH[d.nonverbal.channel] || d.nonverbal.channel} — สื่อว่า "${d.nonverbal.meaning || ''}"${d.nonverbal.touch ? ' (แตะตัวผู้ถามได้)' : ' (ห้ามแตะตัวผู้ถาม)'}`
+    ? `ภาษากาย: ${CHANNEL_TH[d.nonverbal.channel] || d.nonverbal.channel} — สื่อว่า "${d.nonverbal.meaning || ''}"${d.nonverbal.touch ? '' : ' (เป็นท่าของตัวเองเท่านั้น)'}`
     : 'ภาษากาย: ไม่มี (ห้ามเขียนท่าทาง)';
   const budget = sentenceBudget(d);
 
