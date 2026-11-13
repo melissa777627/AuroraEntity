@@ -10,7 +10,6 @@ export function buildEntitySystemPrompt(entity) {
 บุคลิก: ${entity.personality || '(ไม่ระบุ)'}
 รูปแบบภาษา: ${entity.language_style || '(ไม่ระบุ)'}
 ความสัมพันธ์: ${entity.relationship || '(ไม่ระบุ)'}
-ธาตุ: ${entity.element || '(ไม่ระบุ)'}
 โดเมน: ${entity.domain || '(ไม่ระบุ)'}${likesDislikes ? `\nข้อมูลส่วนตัว (รู้อยู่ในใจ ไม่ต้องพูดถึงเองถ้าไม่ถาม หรือไม่เชื่อมกับเรื่องที่คุย):\n${likesDislikes}` : ''}`;
 
   return `${basePersona}

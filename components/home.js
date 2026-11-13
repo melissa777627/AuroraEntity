@@ -125,7 +125,7 @@ function renderEntityGrid(container, entities) {
         ${entity.icon || '🌙'}
       </div>
       <div class="entity-card-name">${esc(entity.name || 'ไม่มีชื่อ')}</div>
-      <div class="entity-card-meta">${esc(entity.element || '')} ${entity.domain ? '• ' + esc(entity.domain) : ''}</div>
+      <div class="entity-card-meta">${esc(entity.domain || '')}</div>
       <div class="entity-card-last-reading">📖 ${lastDate}</div>`;
 
     card.addEventListener('click', () => navigate(`#/chat/${entity.id}`));

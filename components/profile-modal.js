@@ -82,16 +82,7 @@ export function renderProfilePage(entityId, container) {
             <label class="form-label">ความสัมพันธ์กับผู้ถาม</label>
             <input type="text" class="input" id="relationship-input" value="${esc(entity.relationship)}" placeholder="เช่น ผู้พิทักษ์, ครูบาอาจารย์, ผู้ที่รัก">
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="form-group">
-              <label class="form-label">ธาตุ</label>
-              <select class="input" id="element-select">
-                <option value="">-- เลือก --</option>
-                ${['ไฟ','น้ำ','ดิน','อากาศ','อีเธอร์','แสง','ความมืด','เวลา','ฝัน'].map(el =>
-                  `<option value="${el}" ${entity.element === el ? 'selected' : ''}>${el}</option>`
-                ).join('')}
-              </select>
-            </div>
+          <div>
             <div class="form-group">
               <label class="form-label">โดเมน / ความถนัด</label>
               <input type="text" class="input" id="domain-input" value="${esc(entity.domain)}" placeholder="เช่น ความรัก, อาชีพ, จิตวิญญาณ">
@@ -275,7 +266,6 @@ function buildEntityFromForm(container, entity, isNew) {
     personality: container.querySelector('#personality-input').value.trim(),
     language_style: container.querySelector('#language-input').value.trim(),
     relationship: container.querySelector('#relationship-input').value.trim(),
-    element: container.querySelector('#element-select').value,
     domain: container.querySelector('#domain-input').value.trim(),
     likes: container.querySelector('#likes-input').value.trim(),
     dislikes: container.querySelector('#dislikes-input').value.trim(),
@@ -292,7 +282,7 @@ function createBlankEntity() {
   return {
     id: null, name: '', pronouns: { self: '', callUser: '' },
     personality: '', language_style: '', relationship: '',
-    element: '', domain: '', likes: '', dislikes: '',
+    domain: '', likes: '', dislikes: '',
     color_primary: '#c8a4d4', color_secondary: '#ede0f5',
     icon: '🌙',
     prompt_versions: [{ version: 1, saved_at: new Date().toISOString(), label: 'ต้นฉบับ', prompt: '' }],

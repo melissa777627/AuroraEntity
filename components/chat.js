@@ -24,7 +24,7 @@ export function renderChat(entityId, readingId, container) {
         <div class="chat-header-icon">${entity.icon || '🌙'}</div>
         <div class="chat-header-info">
           <h2>${esc(entity.name || 'Entity')}</h2>
-          <p>${esc(entity.element || '')}${entity.domain ? ' • ' + esc(entity.domain) : ''}</p>
+          <p>${esc(entity.domain || '')}</p>
           <div id="chat-vibe-area"></div>
         </div>
         <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
