@@ -17,6 +17,8 @@ const USER_ICON_CATEGORIES = [
 
 export function renderSettings(container) {
   const s = getSettings();
+  // Celtic Cross was removed — fall back to 3 cards for legacy saved values
+  const spread = ['1card', '3card', 'custom'].includes(s.defaultSpread) ? s.defaultSpread : '3card';
 
   container.innerHTML = `
     <div class="page">
@@ -84,10 +86,9 @@ export function renderSettings(container) {
           <div class="form-group">
             <label class="form-label">Spread เริ่มต้น</label>
             <select class="input" id="spread-select">
-              <option value="1card" ${s.defaultSpread === '1card' ? 'selected' : ''}>1 ใบ</option>
-              <option value="3card" ${s.defaultSpread === '3card' ? 'selected' : ''}>3 ใบ (Past/Present/Future)</option>
-              <option value="celtic" ${s.defaultSpread === 'celtic' ? 'selected' : ''}>Celtic Cross (10 ใบ)</option>
-              <option value="custom" ${s.defaultSpread === 'custom' ? 'selected' : ''}>Custom</option>
+              <option value="1card" ${spread === '1card' ? 'selected' : ''}>1 ใบ</option>
+              <option value="3card" ${spread === '3card' ? 'selected' : ''}>3 ใบ</option>
+              <option value="custom" ${spread === 'custom' ? 'selected' : ''}>Custom</option>
             </select>
           </div>
         </div>
