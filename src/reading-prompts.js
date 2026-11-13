@@ -53,11 +53,16 @@ ${persona}
 5. ไพ่หลายใบบอกเรื่องเดียวกัน → รวมเป็นสารเดียว weight = จำนวนใบที่บอกซ้ำ (นี่คือการ "ย้ำ" ไม่ใช่สารน้อยลง)
 6. ไพ่กระเด็น = สิ่งที่ ${name} ย้ำ → สารที่มีใบนี้เป็น core:true
 6.5 ช่องทางพูดของแต่ละสาร (channel) — ตามหลัก "ให้ข้อมูลเท่าที่จำเป็น" (Grice):
-   - "sentence": สารที่ตอบคำถามโดยตรง / สารหลัก / มาจากไพ่กระเด็น → ได้ประโยคของตัวเอง
+   - "sentence": สารที่ตอบคำถามโดยตรง → ได้ประโยคของตัวเอง และประโยคที่ตอบคำถามมาก่อนเสมอ
    - "clause": สารเบื้องหลังที่เกี่ยวข้องแต่ไม่ได้ตอบคำถามตรงๆ → แทรกเป็นวลีสั้นในประโยคอื่น
    - "body": อารมณ์ที่เอนทิตี้ไม่พูดออกมา → ออกเป็นภาษากาย (ต้องตรงกับ nonverbal) มีได้สารเดียว
-   - "tone": ท่าที/อารมณ์พื้นๆ → ออกผ่านการเลือกคำเท่านั้น มีได้สารเดียว
+   - "tone": ท่าที/อารมณ์พื้นๆ หรือการเก็บไว้ → ออกผ่านการเลือกคำ จังหวะหยุด และการพูดน้อยลง
    ต้องมี "sentence" อย่างน้อย 1 สารเสมอ ไม่มีสารไหนหายไป แค่ย้ายช่องทาง
+   สารที่เป็น "การเก็บไว้/ปิดกั้น/ไม่อยากพูด/ข่มอารมณ์" ห้ามเป็น sentence หรือ clause
+   เพราะคนที่เก็บความรู้สึกจะไม่อธิบายว่าตัวเองกำลังเก็บ → ใช้ tone หรือ body เท่านั้น
+   ไพ่กระเด็น/สารหลัก = สิ่งที่ถูกย้ำ ให้ย้ำผ่านช่องทางที่แรงที่สุดของสารนั้น (ไม่จำเป็นต้องเป็นประโยค)
+   ถ้าสิ่งที่ย้ำคือการเก็บไว้ → คำยิ่งน้อย ความนิ่งยิ่งหนัก
+   อ่านไพ่รวมกันตามบริบทหลักของคำถามได้ แต่ความหมายของแต่ละใบต้องยังจำได้ว่ามาจากใบนั้น
 7. สารที่ความหมายไม่ชัดในบริบทนี้ → clarity:"unclear", alt = อีกความหมาย, safe = แก่นที่จริงไม่ว่าจะตีความแบบไหน (ไม่มีก็ null)
 8. คำถามมีข้อสันนิษฐาน (เช่น "โกรธหรอ") → ตรวจว่าไพ่ยืนยันไหม ถ้าไม่ ต้องบอกความจริงตามไพ่
 9. ไพ่ขัดกันเอง → ห้ามเกลี่ยให้กลมกลืน บันทึกไว้ทั้งสองด้าน (มักเป็นช่อง leak)
@@ -68,6 +73,8 @@ ${persona}
 ภาษากาย — เลือก "ช่องเดียว" ที่ไพ่รองรับที่สุด หรือ none (none คือค่าปกติ ใช้เมื่อคำพูดบอกครบแล้ว):
 - affect: อารมณ์ชัดและแรง แสดงออกทางสีหน้าตรงๆ
 - leak: ปากพูดอย่าง ร่างกายฟ้องอีกอย่าง — ไพ่ขัดกัน หรืออารมณ์ที่บุคลิกนี้จะไม่ยอมพูดออกมา
+  ทิศของ leak: ปากพูดแบบเก็บไว้/น้อยกว่าที่รู้สึก ส่วนร่างกายเผยความรู้สึกจริงที่ซ่อน
+  meaning ของ leak = ความรู้สึกที่ร่างกายเผยออกมา (เช่น "คิดถึงจนเก็บไม่อยู่") ไม่ใช่ "พยายามเก็บ"
 - illustrator: อารมณ์แรง (intensity สูงหรือไพ่ย้ำ) และบุคลิกช่างพูด/แสดงออก — ท่าประกอบการพูด
 - emblem: คำตอบเป็นใช่/ไม่ใช่ชัด และบุคลิกพูดน้อย — ท่าที่แทนคำได้ (พยักหน้า ส่ายหน้า)
 - regulator: ไพ่บอกว่าอยากคุยต่อ หรืออยากจบบทสนทนา
@@ -102,7 +109,8 @@ ${persona}
   "expressiveness": "normal",
   "hesitation": { "value": false, "cards": [] },
   "silent": false,
-  "followup": null
+  "followup": null,
+  "summary": "สรุปสั้น 1-2 ประโยค เล่าแบบคนกลางว่าเอนทิตี้กำลังเป็นยังไง รวมสิ่งที่ไม่ได้พูดออกมา (ไม่ใช่คำพูดของเอนทิตี้)"
 }`;
 }
 
@@ -116,7 +124,7 @@ ${cards.map(cardLine).join('\n')}`;
 
 const CHANNEL_TH = {
   affect: 'สีหน้าที่แสดงอารมณ์ตรงๆ',
-  leak: 'ร่างกายฟ้องสิ่งที่ปากไม่พูด',
+  leak: 'ร่างกายฟ้องสิ่งที่ปากไม่ยอมพูด (ปากพูดน้อยกว่าที่รู้สึก ร่างกายเผยความรู้สึกจริง)',
   illustrator: 'ท่าประกอบคำพูด',
   emblem: 'ท่าที่แทนคำพูดได้',
   regulator: 'ท่าที่บอกว่าอยากคุยต่อหรืออยากจบ',
@@ -176,7 +184,7 @@ export function buildVoiceUserPrompt(context, question, decode, prev) {
     ['พูดเป็นประโยค (สารละ 1 ประโยคสั้น)', by('sentence')],
     ['แทรกเป็นวลีสั้นๆ ในประโยคข้างบน ห้ามแยกเป็นประโยคใหม่', by('clause')],
     ['ไม่พูดออกมา — แสดงเป็นภาษากายแทน', by('body')],
-    ['ไม่พูดออกมา — ให้รู้สึกผ่านการเลือกคำเท่านั้น', by('tone')]
+    ['ไม่พูดออกมา — ให้รู้สึกผ่านการเลือกคำ จังหวะหยุด "…" และการพูดน้อยลง (ห้ามพูดว่ากำลังเก็บ/ข่ม/ปิดความรู้สึก)', by('tone')]
   ].filter(([, items]) => items.length);
   const msgLines = groups.map(([title, items]) => `${title}:\n${items.map(x => `- ${x}`).join('\n')}`);
 
@@ -211,7 +219,9 @@ export function sentenceBudget(d) {
   const spoken = (d.messages || []).filter(m => (m.channel || 'sentence') === 'sentence' && (m.clarity !== 'unclear' || m.safe)).length || 1;
   // Personality only decides how much room there is to repeat/emphasise a feeling.
   const emphasis = (d.messages || []).some(m => m.weight > 1) || d.intensity >= 3;
-  const extra = { reserved: 0, normal: emphasis ? 1 : 0, expressive: emphasis ? 2 : 1 }[d.expressiveness] ?? 0;
+  // When what's emphasised is something held back, fewer words — no room to elaborate.
+  const holdingBack = (d.messages || []).some(m => m.core && m.channel !== 'sentence' && m.channel !== 'clause');
+  const extra = holdingBack ? 0 : ({ reserved: 0, normal: emphasis ? 1 : 0, expressive: emphasis ? 2 : 1 }[d.expressiveness] ?? 0);
   return spoken + extra;
 }
 
@@ -275,14 +285,17 @@ export function validateDecode(raw, cards) {
     nonverbal = { channel: d.nonverbal.channel, meaning: String(d.nonverbal.meaning || ''), cards: nvCards.map(c => c.id), touch: touchOk };
   }
 
-  // Channel guards: core always spoken; one body (only with a backed gesture), one tone; at least one sentence
-  let bodyUsed = false, toneUsed = false;
+  // Channel guards.
+  // Holding-back messages (a withdrawing card behind them, none approaching) are never narrated in words:
+  // someone keeping a feeling in doesn't explain that they're keeping it in.
+  const byId = Object.fromEntries(cards.map(c => [c.id, c]));
+  const holdsBack = m => m.cards.some(id => byId[id]?.approach === 'away') && !m.cards.some(id => byId[id]?.approach === 'toward');
+  let bodyUsed = false;
   for (const m of messages) {
-    if (m.core) m.channel = 'sentence';
+    if (holdsBack(m) && (m.channel === 'sentence' || m.channel === 'clause')) m.channel = 'tone';
     if (m.channel === 'body') {
-      if (bodyUsed || nonverbal.channel === 'none') m.channel = 'clause'; else bodyUsed = true;
+      if (bodyUsed || nonverbal.channel === 'none') m.channel = holdsBack(m) ? 'tone' : 'clause'; else bodyUsed = true;
     }
-    if (m.channel === 'tone') { if (toneUsed) m.channel = 'clause'; else toneUsed = true; }
   }
   if (messages.length && !messages.some(m => m.channel === 'sentence')) {
     (messages.find(m => m.channel === 'clause') || messages[0]).channel = 'sentence';
@@ -309,6 +322,7 @@ export function validateDecode(raw, cards) {
     // silence needs a gesture; without a backed one, don't go silent
     silent: !!d.silent && nonverbal.channel !== 'none',
     followup: typeof d.followup === 'string' && d.followup.trim() ? d.followup.trim() : null,
+    summary: typeof d.summary === 'string' ? d.summary.trim() : '',
     unused
   };
 }

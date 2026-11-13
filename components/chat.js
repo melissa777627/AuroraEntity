@@ -581,6 +581,7 @@ function renderDecodePanel(panel, reading) {
       <button class="dp-toggle" aria-expanded="false">🔒 สารที่ส่งมา</button>
       <div class="dp-body" hidden>
         ${groups}
+        ${d.summary ? `<div class="dp-summary"><div class="dp-group-title">📝 สรุป</div>${esc(d.summary)}</div>` : ''}
         ${facts.length ? `<div class="dp-facts">${facts.map(f => `<div>${f}</div>`).join('')}</div>` : ''}
         ${notes ? `<details class="dp-details"><summary>ดูความหมายไพ่ทีละใบ</summary>${notes}</details>` : ''}
       </div>
@@ -665,8 +666,9 @@ function injectReadingStyle() {
     .card-chip.jumper, .selected-card-chip.jumper { box-shadow:0 0 0 1.5px var(--accent); }
     .abandon-draw { font-size:0.8rem; opacity:0.6; }
     .followup-row { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:8px; }
-    .followup-label { font-size:0.7rem; color:var(--text-soft); }
-    .followup-chip { font:inherit; font-size:0.85rem; line-height:1.5; padding:6px 12px; border-radius:14px; border:1px dashed var(--accent-deep); background:var(--bg-primary); color:var(--text-primary); cursor:pointer; width:100%; text-align:left; }
+    .followup-label { font-size:0.66rem; color:var(--text-soft); opacity:0.8; }
+    .dp-summary { font-size:0.84rem; line-height:1.6; padding:8px 10px; border-radius:10px; background:var(--bg-primary); }
+    .followup-chip { font:inherit; font-size:0.74rem; line-height:1.45; padding:3px 10px; border-radius:12px; border:1px dashed var(--accent); background:transparent; color:var(--text-soft); cursor:pointer; max-width:100%; text-align:left; }
     .dp-toggle { width:100%; text-align:left; font:inherit; font-size:0.85rem; color:var(--text-soft); background:none; border:none; padding:6px 2px; cursor:pointer; }
     .dp-body { display:flex; flex-direction:column; gap:14px; padding:4px 2px 6px; font-size:0.86rem; line-height:1.6; }
     .dp-group { display:flex; flex-direction:column; gap:8px; }
