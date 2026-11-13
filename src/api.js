@@ -95,44 +95,63 @@ export async function callDecode(entity, context, question, cards, prev = []) {
 
 export async function callVoice(entity, context, question, decode, prev = [], onChunk) {
   const { key, model } = cfg();
-  const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse&key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: buildVoiceSystemPrompt(entity) }] },
-      contents: [{ role: 'user', parts: [{ text: buildVoiceUserPrompt(context, question, decode, prev) }] }],
-      generationConfig: { temperature: 0.6, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
-    })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `API Error ${res.status}`);
-  }
+  const sys = buildVoiceSystemPrompt(entity);
+  const user = buildVoiceUserPrompt(context, question, decode, prev);
+  const configs = [
+    { temperature: 0.6, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
+    // Retry without the thinking override and with more room — some models return nothing with budget 0
+    { temperature: 0.7, maxOutputTokens: 2048 }
+  ];
 
-  let full = '';
-  let usage = null;
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const raw = line.slice(6).trim();
-      if (!raw || raw === '[DONE]') continue;
-      try {
-        const parsed = JSON.parse(raw);
-        const chunk = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (chunk) { full += chunk; onChunk?.(chunk, full); }
-        if (parsed?.usageMetadata) usage = parsed.usageMetadata;
-      } catch {}
+  let lastReason = '';
+  for (const generationConfig of configs) {
+    const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse&key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: sys }] },
+        contents: [{ role: 'user', parts: [{ text: user }] }],
+        generationConfig
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API Error ${res.status}`);
     }
+
+    let full = '';
+    let usage = null;
+    let reason = '';
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw || raw === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(raw);
+          const cand = parsed?.candidates?.[0];
+          // join every non-thought text part, not just parts[0]
+          const chunk = (cand?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+          if (chunk) { full += chunk; onChunk?.(chunk, full); }
+          if (cand?.finishReason) reason = cand.finishReason;
+          if (parsed?.promptFeedback?.blockReason) reason = parsed.promptFeedback.blockReason;
+          if (parsed?.usageMetadata) usage = parsed.usageMetadata;
+        } catch {}
+      }
+    }
+    if (full.trim()) return { text: full.trim(), usage };
+    lastReason = reason || 'EMPTY';
   }
-  return { text: full.trim(), usage };
+  const why = { SAFETY: 'โดนตัวกรองความปลอดภัยของ Gemini', PROHIBITED_CONTENT: 'โดนตัวกรองเนื้อหาของ Gemini', MAX_TOKENS: 'พื้นที่คำตอบหมดก่อนพูด', RECITATION: 'ตัวกรองของ Gemini' }[lastReason] || lastReason;
+  throw new Error(`พี่ไม่ได้พูดออกมา (${why}) — กดลองอีกครั้งได้`);
 }
 
 export async function callCardOfDayMessage(card) {

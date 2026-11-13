@@ -292,7 +292,7 @@ const spreadStates = new Map();
 const JUMPER_ONE_IN = 8;
 const FAN_VISIBLE = 13;
 const FAN_STEP_DEG = 7.5;
-const DRAG_PX_PER_CARD = 26;
+const DRAG_PX_PER_CARD = 18;
 
 let sheetEl = null;
 
@@ -337,7 +337,7 @@ export async function openCardSpread(spreadType = '3card', existingCards = [], q
             ${'<div class="ritual-deck-card"><div class="rcard-back"></div></div>'.repeat(6)}
             <div class="ritual-presence"><div class="ritual-avatar">${esc(who.icon)}</div><small>${esc(who.name)}กำลังฟัง</small></div>
           </div>
-          <div class="ritual-fan" hidden><div class="ritual-swipe">‹ ปัดเพื่อดูไพ่ ›</div></div>
+          <div class="ritual-fan" hidden><div class="ritual-swipe"><div class="ritual-track"><div class="ritual-thumb"></div></div><span class="ritual-pos">‹ ปัดเพื่อดูไพ่ ›</span></div></div>
         </div>
         <button class="ritual-send" hidden>ส่งถึง${esc(who.name)} 🌸</button>
         <button class="ritual-manual">จั่วจากไพ่จริง? กรอกเอง</button>
@@ -492,6 +492,12 @@ export async function openCardSpread(spreadType = '3card', existingCards = [], q
     }
     function layoutFan(intro) {
       const avail = available();
+      const len = Math.max(avail.length, 1);
+      const pos = (((Math.round(offset) % len) + len) % len);
+      const thumb = $('.ritual-thumb');
+      if (thumb) thumb.style.left = `${(pos / len) * 82}%`;
+      const posEl = $('.ritual-pos');
+      if (posEl) posEl.textContent = `‹ ใบที่ ${pos + 1}–${Math.min(pos + FAN_VISIBLE, len)} จาก ${len} ›`;
       const base = Math.floor(offset);
       const frac = offset - base;
       pool.forEach((b, k) => {
@@ -516,9 +522,16 @@ export async function openCardSpread(spreadType = '3card', existingCards = [], q
         }
       });
     }
+    let frameQueued = false, inertiaId = 0;
+    function queueLayout() {
+      if (frameQueued) return;
+      frameQueued = true;
+      requestAnimationFrame(() => { frameQueued = false; layoutFan(false); });
+    }
     fan.addEventListener('pointerdown', e => {
       if (revealed) return;
-      drag = { x: e.clientX, start: offset, moved: false };
+      cancelAnimationFrame(inertiaId);
+      drag = { x: e.clientX, start: offset, moved: false, lastX: e.clientX, lastT: performance.now(), v: 0 };
       try { fan.setPointerCapture(e.pointerId); } catch {}
       fan.classList.add('dragging');
     });
@@ -527,16 +540,38 @@ export async function openCardSpread(spreadType = '3card', existingCards = [], q
       const dx = e.clientX - drag.x;
       if (Math.abs(dx) > 6) drag.moved = true;
       if (!drag.moved) return;
+      const now = performance.now();
+      const dt = Math.max(1, now - drag.lastT);
+      drag.v = 0.8 * ((drag.lastX - e.clientX) / DRAG_PX_PER_CARD / dt) + 0.2 * drag.v; // cards per ms
+      drag.lastX = e.clientX; drag.lastT = now;
       offset = drag.start - dx / DRAG_PX_PER_CARD;
-      layoutFan(false);
+      queueLayout();
     });
+    function settle() {
+      // glide with friction, then snap to a whole card
+      // finger paused before lifting → no glide; cap speed so the fan can't spin wildly
+      let v = drag && performance.now() - drag.lastT < 80 ? drag.v : 0;
+      v = Math.max(-0.05, Math.min(0.05, v));
+      const step = () => {
+        v *= 0.92;
+        offset += v * 16;
+        layoutFan(false);
+        if (Math.abs(v) > 0.0015) inertiaId = requestAnimationFrame(step);
+        else { fan.classList.remove('dragging'); offset = Math.round(offset); layoutFan(false); }
+      };
+      inertiaId = requestAnimationFrame(step);
+    }
     function endDrag(e) {
       if (!drag) return;
       const wasTap = !drag.moved;
-      drag = null;
-      fan.classList.remove('dragging');
-      offset = Math.round(offset);
-      layoutFan(false);
+      if (wasTap) {
+        drag = null;
+        fan.classList.remove('dragging');
+      } else {
+        settle();
+        drag = null;
+        return;
+      }
       if (wasTap && e?.type === 'pointerup') {
         const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('.ritual-fan-card');
         if (hit?.dataset.id) pick(hit.dataset.id, hit);

@@ -13,6 +13,7 @@
   display: flex; flex-direction: column; align-items: center;
   padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   overflow: hidden; font-family: var(--font-main);
+  touch-action: manipulation; /* no double-tap zoom inside the sheet */
 }
 .ritual-backdrop.open .ritual-sheet { transform: translateY(0); }
 .ritual-grab { width: 44px; height: 5px; border-radius: 3px; background: var(--accent); margin-bottom: 10px; flex: none; }
@@ -71,6 +72,7 @@
 
 .ritual-fan { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
 .ritual-fan-card {
+  will-change: transform;
   position: absolute; left: 50%; bottom: 22px; width: 70px; height: 108px; margin-left: -35px;
   transform-origin: 50% 340px; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .25s;
   border: none; padding: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
@@ -81,7 +83,11 @@
 .ritual-fan-card:focus-visible .rcard-back { box-shadow: 0 0 0 3px var(--accent-deep); }
 @media (hover: hover) { .ritual-fan-card:hover .rcard-back { box-shadow: 0 0 0 2px var(--accent-deep), 0 8px 18px rgba(232, 130, 154, 0.45); } }
 .ritual-fan-card.picked { opacity: 0 !important; }
-.ritual-swipe { position: absolute; bottom: 0; width: 100%; text-align: center; font-size: 0.72rem; color: var(--text-soft); pointer-events: none; }
+.ritual-swipe { position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--text-soft); pointer-events: none; font-variant-numeric: tabular-nums; }
+.ritual-track { position: relative; width: min(220px, 70%); height: 4px; border-radius: 2px; background: var(--accent); opacity: .6; }
+.ritual-thumb { position: absolute; top: -2px; width: 18%; height: 8px; border-radius: 4px; background: var(--accent-deep); }
+/* iOS zooms into inputs smaller than 16px */
+@media (max-width: 768px) { .chat-input-row .input { font-size: 16px; } }
 
 .ritual-jump { position: absolute; z-index: 6; pointer-events: none; animation: ritualJump 1.1s cubic-bezier(.2,.9,.3,1) forwards; }
 @keyframes ritualJump { 0% { transform: translate(0,0) rotate(0) scale(1); } 45% { transform: translate(60px,-150px) rotate(200deg) scale(1.15); } 100% { transform: translate(var(--jx), var(--jy)) rotate(360deg); } }

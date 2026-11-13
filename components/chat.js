@@ -145,6 +145,7 @@ export function renderChat(entityId, readingId, container) {
     if (selectedCards.length) { showToast('จั่วไพ่ไปแล้ว — กด ✕ ถ้าจะทิ้งชุดนี้'); return; }
     if (!requireQuestion()) return;
     questionInput.readOnly = true;
+    document.activeElement?.blur?.();
     const picked = await openCardSpread(settings.defaultSpread || '3card', [], questionInput.value.trim(), entity);
     if (picked === 'manual') {
       const manual = await openCardPicker(settings.defaultSpread || '3card', []);
@@ -250,10 +251,10 @@ export function renderChat(entityId, readingId, container) {
 
         contentEl.textContent = '';
         const { text: rawText, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
-          contentEl.innerHTML = formatVoice(enforceVoice(full, decode));
+          contentEl.innerHTML = formatVoice(enforceVoice(full, decode) || full);
           chatMessages.scrollTop = chatMessages.scrollHeight;
         });
-        const text = enforceVoice(rawText, decode);
+        const text = enforceVoice(rawText, decode) || rawText;
         contentEl.innerHTML = formatVoice(text);
 
         contentEl.classList.remove('streaming');
@@ -272,6 +273,7 @@ export function renderChat(entityId, readingId, container) {
 
         renderDecodePanel(readingEl.querySelector(`#analysis-${readingId}`), reading);
         bindFollowup(readingEl, reading, container);
+        bindRevoice(readingEl, reading, entity);
 
       } catch (err) {
         contentEl.classList.remove('streaming');
@@ -327,6 +329,7 @@ function appendReading(chatMessages, reading, entity) {
     if (reading.decode) {
       renderDecodePanel(el.querySelector(`#analysis-${reading.id}`), reading);
       bindFollowup(el, reading, chatMessages.closest('.chat-screen'));
+      bindRevoice(el, reading, entity);
     } else if (reading.analysis) {
       const analysisPanel = el.querySelector(`#analysis-${reading.id}`);
       if (analysisPanel) {
@@ -530,54 +533,97 @@ function formatVoice(text) {
   return esc(text || '').replace(/\*\(([^*\n]*?)\)\*/g, '<span class="voice-action">($1)</span>');
 }
 
-const CHANNEL_SAY = { sentence: 'ประโยค', clause: 'วลีแทรก', body: 'ท่าทาง', tone: 'น้ำเสียง' };
 const ABOUT_TH = { entity: 'พี่', user: 'หนู', unclear: 'ไม่ชัด' };
 const CHANNEL_LABEL = {
   affect: 'สีหน้า/อารมณ์', leak: 'อารมณ์รั่ว', illustrator: 'ท่าประกอบคำพูด', emblem: 'ท่าแทนคำ',
   regulator: 'ท่าคุมบทสนทนา', adaptor: 'ท่าคลายอึดอัด', proxemic: 'ระยะห่าง'
 };
 
+const SAY_ICON = { sentence: '💬', clause: '↪', body: '🫧', tone: '🎐' };
+const SAY_LABEL = { sentence: 'พูดออกมา', clause: 'แทรกในประโยค', body: 'ออกทางท่าทาง', tone: 'ออกทางน้ำเสียง' };
+
+// Calm, readable layout: what was sent, grouped by how it comes out; details folded away.
 function renderDecodePanel(panel, reading) {
   const d = reading.decode;
   if (!panel || !d) return;
   const byId = Object.fromEntries((reading.cards || []).map(c => [c.id, c]));
-  const names = ids => ids.map(id => esc(byId[id]?.name || id)).join(', ');
+  const names = ids => ids.map(id => esc(byId[id]?.nameTH || byId[id]?.name || id)).join(' · ');
 
-  const msgs = d.messages.map(m => `
-    <li class="decode-msg${m.clarity === 'unclear' ? ' unclear' : ''}">
-      <span class="decode-about">[${ABOUT_TH[m.about] || m.about}]</span>
-      ${m.core ? '⭐ ' : ''}${esc(m.text)} <span class="decode-tag">${CHANNEL_SAY[m.channel] || 'ประโยค'}</span>${m.weight > 1 ? ` <span class="decode-tag">ย้ำ×${m.weight}</span>` : ''}${m.directive ? ' <span class="decode-tag">สั่ง</span>' : ''}
-      <span class="decode-cards">(${names(m.cards)})</span>
-      ${m.clarity === 'unclear' ? `<div class="decode-sub">อาจหมายถึง: ${esc(m.alt || '-')}${m.safe ? ` → พูดได้แค่: "${esc(m.safe)}"` : ''}</div>` : ''}
-    </li>`).join('');
+  const order = ['sentence', 'clause', 'body', 'tone'];
+  const groups = order.map(ch => {
+    const items = d.messages.filter(m => (m.channel || 'sentence') === ch);
+    if (!items.length) return '';
+    return `<div class="dp-group">
+      <div class="dp-group-title">${SAY_ICON[ch]} ${SAY_LABEL[ch]}</div>
+      ${items.map(m => `<div class="dp-item${m.clarity === 'unclear' ? ' unclear' : ''}">
+        <div class="dp-text">${m.core ? '⭐ ' : ''}${esc(m.text)}${m.weight > 1 ? ` <span class="dp-weight">ย้ำ ×${m.weight}</span>` : ''}</div>
+        ${m.clarity === 'unclear' ? `<div class="dp-sub">ไม่ชัด — อาจหมายถึง ${esc(m.alt || '-')}${m.safe ? ` · พูดได้แค่ "${esc(m.safe)}"` : ''}</div>` : ''}
+        ${m.about === 'user' || m.directive ? `<div class="dp-sub">${m.about === 'user' ? 'เรื่องของหนู' : ''}${m.about === 'user' && m.directive ? ' · ' : ''}${m.directive ? 'พี่อยากให้ทำ' : ''}</div>` : ''}
+        <div class="dp-cards">${names(m.cards)}</div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  const facts = [
+    d.assumption && d.assumption.holds === false ? `ที่ถามว่า "${esc(d.assumption.text)}" ไม่ตรง — จริงๆ คือ ${esc(d.assumption.actual)}` : '',
+    d.nonverbal?.channel && d.nonverbal.channel !== 'none' ? `ภาษากาย: ${esc(d.nonverbal.meaning)}` : '',
+    d.hesitation?.value ? 'ลังเลก่อนตอบ' : '',
+    d.silent ? 'พี่เลือกที่จะเงียบ' : '',
+    d.unused?.length ? `⚠️ ไพ่ที่ไม่ได้ถูกนับ: ${names(d.unused)}` : ''
+  ].filter(Boolean);
 
   const notes = (d.cards || []).map(c => `
-    <li><strong>${names([c.id])}</strong> <span class="decode-about">[${ABOUT_TH[c.about] || c.about || '-'}]</span> ${esc(c.reading || '')}${c.why ? `<div class="decode-sub">${esc(c.why)}</div>` : ''}</li>`).join('');
-
-  const extras = [
-    d.assumption && d.assumption.holds === false ? `ข้อสันนิษฐาน "${esc(d.assumption.text)}" ไม่ตรง → ${esc(d.assumption.actual)}` : '',
-    d.nonverbal?.channel && d.nonverbal.channel !== 'none'
-      ? `ภาษากาย: ${CHANNEL_LABEL[d.nonverbal.channel] || d.nonverbal.channel} — ${esc(d.nonverbal.meaning)} (${names(d.nonverbal.cards)})`
-      : 'ภาษากาย: ไม่มี',
-    `น้ำเสียง: ${esc(d.tone)} · ความแรง ${d.intensity}/3${d.hesitation?.value ? ' · ลังเล' : ''}${d.silent ? ' · เงียบ' : ''}`,
-    d.unused?.length ? `⚠️ ไพ่ที่ไม่ถูกนับในสาร: ${names(d.unused)}` : ''
-  ].filter(Boolean).map(x => `<div class="decode-extra">${x}</div>`).join('');
+    <div class="dp-note"><b>${names([c.id])}</b> ${esc(c.reading || '')}${c.why ? `<div class="dp-sub">${esc(c.why)}</div>` : ''}</div>`).join('');
 
   panel.classList.add('open');
   panel.innerHTML = `
     <div class="analysis-inner">
-      <button class="btn-cards-expand decode-toggle">🔒 สารที่ส่งมา ▼</button>
-      <div class="analysis-cards-detail decode-body">
-        <ul class="decode-list">${msgs}</ul>
-        ${extras}
-        ${notes ? `<div class="decode-notes-title">ไพ่แต่ละใบ</div><ul class="decode-list">${notes}</ul>` : ''}
+      <button class="dp-toggle" aria-expanded="false">🔒 สารที่ส่งมา</button>
+      <div class="dp-body" hidden>
+        ${groups}
+        ${facts.length ? `<div class="dp-facts">${facts.map(f => `<div>${f}</div>`).join('')}</div>` : ''}
+        ${notes ? `<details class="dp-details"><summary>ดูความหมายไพ่ทีละใบ</summary>${notes}</details>` : ''}
       </div>
     </div>`;
-  panel.querySelector('.decode-toggle').addEventListener('click', function() {
-    const body = panel.querySelector('.decode-body');
-    const open = body.classList.toggle('open');
-    this.textContent = open ? '🔓 สารที่ส่งมา ▲' : '🔒 สารที่ส่งมา ▼';
+  panel.querySelector('.dp-toggle').addEventListener('click', function() {
+    const body = panel.querySelector('.dp-body');
+    body.hidden = !body.hidden;
+    this.setAttribute('aria-expanded', String(!body.hidden));
+    this.textContent = body.hidden ? '🔒 สารที่ส่งมา' : '🔓 สารที่ส่งมา';
   });
+}
+
+// Re-speak the same decoded message (same cards, same meaning — only the wording is redone)
+function bindRevoice(readingEl, reading, entity) {
+  const actions = readingEl.querySelector('.bubble-actions');
+  if (!reading.decode || !actions || actions.querySelector('.revoice-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon revoice-btn';
+  btn.title = 'ให้พี่พูดใหม่ (สารเดิม ไพ่เดิม)';
+  btn.textContent = '🔄';
+  btn.addEventListener('click', async () => {
+    const contentEl = readingEl.querySelector('.bubble-content');
+    if (!contentEl || btn.disabled) return;
+    btn.disabled = true;
+    const before = contentEl.innerHTML;
+    contentEl.innerHTML = TYPING_DOTS;
+    try {
+      const prev = getReadingsByEntity(reading.entity_id).filter(r => r.id < reading.id).slice(-3);
+      const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
+        contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode) || full);
+      });
+      const text = enforceVoice(raw, reading.decode) || raw;
+      contentEl.innerHTML = formatVoice(text);
+      const msg = reading.messages?.[0];
+      if (msg) { msg.content = text; msg.tokens = usage; } else reading.messages = [{ id: `msg_${Date.now()}`, role: 'assistant', content: text, tokens: usage }];
+      saveReading(reading);
+    } catch (err) {
+      contentEl.innerHTML = before;
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+  });
+  actions.prepend(btn);
 }
 
 // A suggested follow-up only fills the question box — the user still draws cards as usual
@@ -615,6 +661,20 @@ function injectReadingStyle() {
     .card-chip.jumper, .selected-card-chip.jumper { box-shadow:0 0 0 1.5px var(--accent); }
     .abandon-draw { font-size:0.8rem; opacity:0.6; }
     .followup-chip { font-size:0.75rem; padding:3px 10px; border-radius:12px; border:1px dashed var(--accent); background:transparent; color:var(--text); cursor:pointer; max-width:100%; text-align:left; }
+    .dp-toggle { width:100%; text-align:left; font:inherit; font-size:0.85rem; color:var(--text-soft); background:none; border:none; padding:6px 2px; cursor:pointer; }
+    .dp-body { display:flex; flex-direction:column; gap:14px; padding:4px 2px 6px; font-size:0.86rem; line-height:1.6; }
+    .dp-group { display:flex; flex-direction:column; gap:8px; }
+    .dp-group-title { font-size:0.72rem; letter-spacing:0.02em; color:var(--text-soft); }
+    .dp-item { padding-left:10px; border-left:2px solid var(--accent); }
+    .dp-item.unclear { border-left-style:dashed; }
+    .dp-text { color:var(--text-primary); }
+    .dp-weight { font-size:0.7rem; color:var(--accent-deep); white-space:nowrap; }
+    .dp-sub { font-size:0.74rem; color:var(--text-soft); }
+    .dp-cards { font-size:0.7rem; color:var(--text-soft); opacity:0.85; }
+    .dp-facts { font-size:0.76rem; color:var(--text-soft); display:flex; flex-direction:column; gap:2px; }
+    .dp-details summary { font-size:0.76rem; color:var(--text-soft); cursor:pointer; }
+    .dp-note { font-size:0.8rem; margin-top:6px; }
+    .revoice-btn { font-size:0.9rem; opacity:0.7; }
     .decode-list { list-style:none; padding:0; margin:6px 0; display:flex; flex-direction:column; gap:6px; font-size:0.82rem; line-height:1.55; }
     .decode-msg.unclear { opacity:0.8; }
     .decode-about { font-size:0.7rem; color:var(--text-soft); }
