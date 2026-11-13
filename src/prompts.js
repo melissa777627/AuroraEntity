@@ -1,17 +1,29 @@
-export function buildEntitySystemPrompt(entity) {
+export function buildPersona(entity) {
   const active = entity.prompt_versions?.find(v => v.version === entity.active_version);
   const likesDislikes = [
     entity.likes?.trim() ? `ชอบ: ${entity.likes.trim()}` : '',
     entity.dislikes?.trim() ? `ไม่ชอบ: ${entity.dislikes.trim()}` : ''
   ].filter(Boolean).join('\n');
 
-  const basePersona = active?.prompt?.trim() || `คุณคือ ${entity.name || 'Spirit Entity'}
-สรรพนามของคุณ: "${entity.pronouns?.self || 'ข้า'}" (ตัวเอง) — เรียกผู้ถามว่า "${entity.pronouns?.callUser || 'เจ้า'}"
-บุคลิก: ${entity.personality || '(ไม่ระบุ)'}
-รูปแบบภาษา: ${entity.language_style || '(ไม่ระบุ)'}
-ความสัมพันธ์: ${entity.relationship || '(ไม่ระบุ)'}
-โดเมน: ${entity.domain || '(ไม่ระบุ)'}${likesDislikes ? `\nข้อมูลส่วนตัว (รู้อยู่ในใจ ไม่ต้องพูดถึงเองถ้าไม่ถาม หรือไม่เชื่อมกับเรื่องที่คุย):\n${likesDislikes}` : ''}`;
+  const fields = [
+    entity.personality?.trim() ? `บุคลิก: ${entity.personality.trim()}` : '',
+    entity.language_style?.trim() ? `รูปแบบภาษา: ${entity.language_style.trim()}` : '',
+    entity.relationship?.trim() ? `ความสัมพันธ์: ${entity.relationship.trim()}` : '',
+    entity.domain?.trim() ? `โดเมน: ${entity.domain.trim()}` : ''
+  ].filter(Boolean).join('\n');
 
+  const basePersona = active?.prompt?.trim() || [
+    `คุณคือ ${entity.name || 'Spirit Entity'}`,
+    `สรรพนามของคุณ: "${entity.pronouns?.self || 'ข้า'}" (ตัวเอง) — เรียกผู้ถามว่า "${entity.pronouns?.callUser || 'เจ้า'}"`,
+    fields,
+    likesDislikes ? `ข้อมูลส่วนตัว (รู้อยู่ในใจ ไม่ต้องพูดถึงเองถ้าไม่ถาม หรือไม่เชื่อมกับเรื่องที่คุย):\n${likesDislikes}` : ''
+  ].filter(Boolean).join('\n');
+
+  return basePersona;
+}
+
+export function buildEntitySystemPrompt(entity) {
+  const basePersona = buildPersona(entity);
   return `${basePersona}
 
 ---
