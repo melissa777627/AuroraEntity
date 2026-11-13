@@ -1,5 +1,6 @@
-import { getSettings } from './storage.js';
-import { buildDecodeSystemPrompt, buildDecodeUserPrompt, buildVoiceSystemPrompt, buildVoiceUserPrompt, validateDecode } from './reading-prompts.js';
+import { getSettings, get as storeGet, set as storeSet } from './storage.js';
+import { buildDecodeSystemPrompt, buildDecodeUserPrompt, buildVoiceSystemPrompt, buildVoiceUserPrompt, validateDecode, buildTraitsPrompt } from './reading-prompts.js';
+import { buildPersona } from './prompts.js';
 import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt, buildHandcuffBickerPrompt, buildPollChaosPrompt, buildVetoGrumblePrompt, buildReportCardPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -59,11 +60,49 @@ export async function callEntityVoice(entity, context, question, cards, history 
 }
 
 // ── Two-step reading: decode (cards → raw message) then voice ──────────────
+// Traits the decoder may use (open with the asker? likes touch?), computed once per persona text.
+function personaHash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  return h.toString(36);
+}
+export async function getPersonaTraits(entity) {
+  const hash = personaHash(buildPersona(entity || {}));
+  const cache = storeGet('persona_traits') || {};
+  const hit = cache[entity?.id];
+  if (hit && hit.hash === hash) return hit.traits;
+  const fallback = { expressiveness: 'normal', likes_touch: false };
+  try {
+    const { key, model } = cfg();
+    const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: buildTraitsPrompt(entity) }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' }
+      })
+    });
+    if (!res.ok) return fallback;
+    const data = await res.json();
+    const raw = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    const t = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}');
+    const traits = {
+      expressiveness: ['reserved', 'normal', 'expressive'].includes(t.expressiveness) ? t.expressiveness : 'normal',
+      likes_touch: !!t.likes_touch
+    };
+    cache[entity.id] = { hash, traits };
+    storeSet('persona_traits', cache);
+    return traits;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function callDecode(entity, context, question, cards, prev = []) {
   const { key, model } = cfg();
   const decodeModel = getSettings().decodeModel || model;
+  const traits = await getPersonaTraits(entity);
   const body = JSON.stringify({
-    system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity) }] },
+    system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity, traits) }] },
     contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, cards, prev) }] }],
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
   });
@@ -84,6 +123,7 @@ export async function callDecode(entity, context, question, cards, prev = []) {
     if (m) clean = m[0];
     try {
       const decode = validateDecode(JSON.parse(clean), cards);
+      decode.expressiveness = traits.expressiveness;
       if (decode.messages.length) return decode;
       lastErr = new Error('ถอดสารไม่สำเร็จ (ไม่มีสารที่มีไพ่รองรับ)');
     } catch {

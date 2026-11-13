@@ -54,6 +54,7 @@ export function renderChat(entityId, readingId, container) {
           <button class="mini-deck" id="spread-cards-btn" type="button" disabled title="สับไพ่ (ตั้งคำถามก่อน)" aria-label="สับไพ่"><span></span><span></span><span></span></button>
         </div>
         <div class="chat-input-actions">
+          <button type="button" class="continue-toggle" id="continue-toggle" aria-pressed="false" title="เปิด = ไพ่ชุดนี้ต่อจากเรื่องเมื่อกี้ / ปิด = เรื่องใหม่">🔗 ต่อจากเมื่อกี้</button>
           <span id="submit-error" style="font-size:0.78rem;color:#c0616b;display:none"></span>
           <button class="btn btn-primary" id="submit-btn" ${!settings.apiKey ? 'disabled title="ตั้ง API Key ใน Settings ก่อน"' : ''}>
             🌸 ถาม
@@ -132,6 +133,15 @@ export function renderChat(entityId, readingId, container) {
     syncDeck();
   }
 
+  // "Continue from before" — off by default: each draw is a new message unless chosen
+  const continueBtn = container.querySelector('#continue-toggle');
+  function setContinue(on) {
+    continueBtn.setAttribute('aria-pressed', String(!!on));
+    continueBtn.classList.toggle('on', !!on);
+  }
+  continueBtn.addEventListener('click', () => setContinue(continueBtn.getAttribute('aria-pressed') !== 'true'));
+  container.addEventListener('followup-picked', () => setContinue(true));
+
   // The deck wakes up once there is a question
   const deckBtn = container.querySelector('#spread-cards-btn');
   function syncDeck() {
@@ -180,7 +190,9 @@ export function renderChat(entityId, readingId, container) {
     errEl.style.display = 'none';
 
     // Previous exchanges, so a follow-up question is understood in context
-    const prev = readings.slice(-3);
+    const continuing = continueBtn.getAttribute('aria-pressed') === 'true';
+    const prev = continuing ? readings.slice(-3) : [];
+    setContinue(false);   // every message starts as a new topic unless chosen again
 
     const readingId = `read_${Date.now()}`;
     const reading = {
@@ -188,6 +200,7 @@ export function renderChat(entityId, readingId, container) {
       date: new Date().toISOString().split('T')[0],
       entity_id: entityId,
       context, question,
+      continued: continuing,
       cards: selectedCards,
       messages: [],
       summary: ''
@@ -565,6 +578,10 @@ function renderDecodePanel(panel, reading) {
   }).join('');
 
   const facts = [
+    d.intent ? `หนูกำลัง: ${esc(d.intent.replace(/^ผู้ถาม(กำลัง)?/, ''))}` : '',
+    d.answer ? `คำตอบหลัก: ${esc(d.answer)}${d.answer_cards?.length ? ` (${names(d.answer_cards)})` : ''}` : '',
+    d.off_topic ? '↪ ไพ่ไม่ได้ตอบสิ่งที่ถามตรงๆ — พี่พูดเรื่องที่ไพ่บอกแทน' : '',
+    reading.continued ? '🔗 อ่านต่อจากเรื่องก่อนหน้า' : '',
     d.assumption && d.assumption.holds === false ? `ที่ถามว่า "${esc(d.assumption.text)}" ไม่ตรง — จริงๆ คือ ${esc(d.assumption.actual)}` : '',
     d.nonverbal?.channel && d.nonverbal.channel !== 'none' ? `ภาษากาย: ${esc(d.nonverbal.meaning)}` : '',
     d.hesitation?.value ? 'ลังเลก่อนตอบ' : '',
@@ -600,7 +617,8 @@ function bindRevoice(readingEl, reading, entity) {
   if (!reading.decode || !actions || actions.querySelector('.revoice-btn')) return;
   const btn = document.createElement('button');
   btn.className = 'btn-icon revoice-btn';
-  btn.title = 'อ่านไพ่ชุดนี้ใหม่ (ไพ่เดิม ถอดสารและพูดใหม่)';
+  const titleFor = () => reading.redecoded ? 'ให้พี่พูดใหม่ (สารเดิม ไพ่เดิม)' : 'อ่านไพ่ชุดนี้ใหม่ 1 ครั้ง (ไพ่เดิม ถอดสารใหม่)';
+  btn.title = titleFor();
   btn.textContent = '🔄';
   btn.addEventListener('click', async () => {
     const contentEl = readingEl.querySelector('.bubble-content');
@@ -609,12 +627,16 @@ function bindRevoice(readingEl, reading, entity) {
     const before = contentEl.innerHTML;
     contentEl.innerHTML = TYPING_DOTS;
     try {
-      const prev = getReadingsByEntity(reading.entity_id).filter(r => r.id < reading.id).slice(-3);
-      // Same cards, fresh decode — so improvements to the decode rules apply to old readings too
-      reading.decode = await callDecode(entity, reading.context, reading.question, reading.cards || [], prev);
-      renderDecodePanel(readingEl.querySelector(`#analysis-${reading.id}`), reading);
-      readingEl.querySelector('.followup-row')?.remove();
-      bindFollowup(readingEl, reading, readingEl.closest('.chat-screen'));
+      const prev = reading.continued ? getReadingsByEntity(reading.entity_id).filter(r => r.id < reading.id).slice(-3) : [];
+      // One fresh decode per reading (so rule changes reach old readings); after that only the
+      // wording is redone — otherwise re-reading becomes fishing for a nicer interpretation.
+      if (!reading.redecoded) {
+        reading.decode = await callDecode(entity, reading.context, reading.question, reading.cards || [], prev);
+        reading.redecoded = true;
+        renderDecodePanel(readingEl.querySelector(`#analysis-${reading.id}`), reading);
+        readingEl.querySelector('.followup-row')?.remove();
+        bindFollowup(readingEl, reading, readingEl.closest('.chat-screen'));
+      }
       const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
         contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode, entity) || full);
       });
@@ -623,6 +645,7 @@ function bindRevoice(readingEl, reading, entity) {
       const msg = reading.messages?.[0];
       if (msg) { msg.content = text; msg.tokens = usage; } else reading.messages = [{ id: `msg_${Date.now()}`, role: 'assistant', content: text, tokens: usage }];
       saveReading(reading);
+      btn.title = titleFor();
     } catch (err) {
       contentEl.innerHTML = before;
       showToast(err.message, 'error');
@@ -645,6 +668,8 @@ function bindFollowup(readingEl, reading, screen) {
     const input = screen?.querySelector('#question-input');
     if (!input || input.readOnly) { showToast('มีคำถามที่จั่วไพ่ค้างอยู่'); return; }
     input.value = q;
+    input.dispatchEvent(new Event('input'));
+    screen.dispatchEvent(new CustomEvent('followup-picked', { bubbles: true }));
     screen.querySelector('#chat-input-area')?.classList.remove('collapsed');
     input.focus();
   });
@@ -688,6 +713,8 @@ function injectReadingStyle() {
     .dp-details summary { font-size:0.76rem; color:var(--text-soft); cursor:pointer; }
     .dp-note { font-size:0.8rem; margin-top:6px; }
     .revoice-btn { font-size:0.9rem; opacity:0.7; }
+    .continue-toggle { font:inherit; font-size:0.74rem; padding:4px 10px; border-radius:999px; border:1px dashed var(--accent); background:transparent; color:var(--text-soft); cursor:pointer; margin-right:auto; }
+    .continue-toggle.on { border-style:solid; border-color:var(--accent-deep); background:var(--bg-secondary); color:var(--text-primary); }
     .decode-list { list-style:none; padding:0; margin:6px 0; display:flex; flex-direction:column; gap:6px; font-size:0.82rem; line-height:1.55; }
     .decode-msg.unclear { opacity:0.8; }
     .decode-about { font-size:0.7rem; color:var(--text-soft); }
