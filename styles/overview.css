@@ -25,3 +25,4 @@
 .ov-gossip blockquote { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--accent); color: var(--text-soft); }
 .ov-go { align-self: flex-start; }
 .ov-note, .ov-empty { font-size: 0.75rem; color: var(--text-soft); }
+.ov-ask { font-size: 16px; }
