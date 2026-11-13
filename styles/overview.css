@@ -1,0 +1,27 @@
+/* ── 📜 Entity overview (components/overview.js) ── */
+.ov-modal { max-width: 520px; width: calc(100% - 24px); max-height: 88dvh; display: flex; flex-direction: column; }
+.ov-body { overflow-y: auto; padding: 4px 4px 12px; display: flex; flex-direction: column; gap: 14px; }
+.ov-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-chip { font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; background: var(--bg-secondary); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.ov-bars { display: flex; flex-direction: column; gap: 6px; }
+.ov-bar { display: grid; grid-template-columns: 56px minmax(0, 1fr) 28px; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--text-soft); }
+.ov-bar-track { height: 8px; border-radius: 4px; background: var(--bg-secondary); overflow: hidden; }
+.ov-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent-deep); }
+.ov-bar-fill.ov-Cups { background: #e8829a; }
+.ov-bar-fill.ov-Swords { background: #8fa3c7; }
+.ov-bar-fill.ov-Wands { background: #e9a46a; }
+.ov-bar-fill.ov-Pentacles { background: #8bbf8f; }
+.ov-bar-fill.ov-Major { background: #b39ddb; }
+.ov-bar-n { text-align: right; font-variant-numeric: tabular-nums; }
+.ov-top { font-size: 0.78rem; color: var(--text-soft); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ov-top span { padding: 2px 8px; border-radius: 8px; border: 1px solid var(--accent); color: var(--text-primary); }
+.ov-gossip { font-size: 0.92rem; line-height: 1.7; color: var(--text-primary); }
+.ov-gossip:empty { display: none; }
+.ov-gossip .ov-h { font-family: var(--font-display); font-weight: 500; font-size: 1rem; margin: 14px 0 4px; color: var(--accent-deep); }
+.ov-gossip .ov-h:first-child { margin-top: 0; }
+.ov-gossip p { margin: 6px 0; }
+.ov-gossip ul { margin: 4px 0; padding-left: 1.2em; }
+.ov-gossip li { margin: 2px 0; }
+.ov-gossip blockquote { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--accent); color: var(--text-soft); }
+.ov-go { align-self: flex-start; }
+.ov-note, .ov-empty { font-size: 0.75rem; color: var(--text-soft); }

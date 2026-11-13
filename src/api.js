@@ -133,10 +133,29 @@ export async function callDecode(entity, context, question, cards, prev = []) {
   throw lastErr;
 }
 
+// Persona copy without lines that Gemini's filter tends to misread next to romance.
+const FILTER_PRONE = /sugar|daddy|สกินชิพ|skinship|ทะลึ่ง|เซ็กซี่|sexy|หอม|จูบ|กอด|ลูบ|เปย์|ใจป๋า/i;
+function carefulEntity(entity) {
+  const clean = t => (t || '').split('\n').filter(l => !FILTER_PRONE.test(l)).join('\n');
+  const versions = (entity?.prompt_versions || []).map(v => ({ ...v, prompt: clean(v.prompt) }));
+  return { ...entity, prompt_versions: versions, personality: clean(entity?.personality), language_style: clean(entity?.language_style), likes: '', dislikes: '' };
+}
+
 export async function callVoice(entity, context, question, decode, prev = [], onChunk, extras = {}) {
   const { key, model } = cfg();
-  const sys = buildVoiceSystemPrompt(entity, extras.styleExamples || [], !!getSettings().userIsAdult);
-  const user = buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || []);
+  const adult = !!getSettings().userIsAdult;
+  const normal = {
+    sys: buildVoiceSystemPrompt(entity, extras.styleExamples || [], adult),
+    user: buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || [])
+  };
+  // Careful mode, used only if the normal prompt is blocked by Gemini's filter:
+  // no hearted examples, no touch, persona lines with words filters misread are left out.
+  const safeEntity = carefulEntity(entity);
+  const safeDecode = { ...decode, nonverbal: { ...(decode?.nonverbal || {}), touch: false } };
+  const careful = {
+    sys: buildVoiceSystemPrompt(safeEntity, [], adult),
+    user: buildVoiceUserPrompt(context, question, safeDecode, prev, safeEntity, extras.recentGestures || [])
+  };
   const configs = [
     { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
     // Retry without the thinking override and with more room — some models return nothing with budget 0
@@ -144,13 +163,20 @@ export async function callVoice(entity, context, question, decode, prev = [], on
   ];
 
   let lastReason = '';
-  for (const generationConfig of configs) {
+  const blocked = r => r === 'PROHIBITED_CONTENT' || r === 'SAFETY' || r === 'BLOCKLIST' || r === 'OTHER';
+  const plan = [
+    ...configs.map(c => ({ c, p: normal, safe: false })),
+    // careful mode only after a filter block
+    ...configs.map(c => ({ c, p: careful, safe: true }))
+  ];
+  for (const { c: generationConfig, p, safe } of plan) {
+    if (safe && !blocked(lastReason)) break;
     const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse&key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: sys }] },
-        contents: [{ role: 'user', parts: [{ text: user }] }],
+        system_instruction: { parts: [{ text: p.sys }] },
+        contents: [{ role: 'user', parts: [{ text: p.user }] }],
         generationConfig
       })
     });
@@ -187,14 +213,14 @@ export async function callVoice(entity, context, question, decode, prev = [], on
         } catch {}
       }
     }
-    if (full.trim()) return { text: full.trim(), usage };
-    lastReason = reason || 'EMPTY';
+    if (full.trim()) return { text: full.trim(), usage, careful: safe };
+    if (!(blocked(lastReason) && !blocked(reason))) lastReason = reason || 'EMPTY';
   }
   if (lastReason === 'PROHIBITED_CONTENT' || lastReason === 'SAFETY') {
     const tip = getSettings().userIsAdult
       ? 'ลองเปลี่ยนคำในโปรไฟล์พี่ที่อาจถูกอ่านผิด เช่น "sugar daddy" → "ใจป๋า", "ทะลึ่ง" → "ขี้แซว"'
       : 'ลองติ๊ก "ฉันอายุ 18 ปีขึ้นไป" ในหน้าตั้งค่า';
-    throw new Error(`พี่ไม่ได้พูดออกมา (โดนตัวกรองของ Gemini) — ${tip} แล้วกดลองอีกครั้ง`);
+    throw new Error(`พี่ไม่ได้พูดออกมา (โดนตัวกรองของ Gemini แม้ในโหมดระวัง · ${getSettings().modelName}) — ${tip} แล้วกดลองอีกครั้ง`);
   }
   const why = { MAX_TOKENS: 'พื้นที่คำตอบหมดก่อนพูด', RECITATION: 'ตัวกรองของ Gemini' }[lastReason] || lastReason;
   throw new Error(`พี่ไม่ได้พูดออกมา (${why}) — กดลองอีกครั้งได้`);
@@ -904,4 +930,27 @@ export async function callReportCard(entries, entities) {
   const m = clean.match(/\[[\s\S]*\]/);
   if (m) clean = m[0];
   return (() => { try { return JSON.parse(clean); } catch { return []; } })();
+}
+
+// Plain one-shot text generation (used by the entity overview).
+export async function callText(system, user, generationConfig = {}) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: user }] }],
+      generationConfig
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API Error ${res.status}`);
+  }
+  const data = await res.json();
+  const cand = data.candidates?.[0];
+  const text = (cand?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
+  if (!text) throw new Error(`ไม่มีคำตอบ (${cand?.finishReason || data.promptFeedback?.blockReason || 'EMPTY'})`);
+  return text;
 }

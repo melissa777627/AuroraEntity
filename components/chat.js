@@ -5,6 +5,7 @@ import { getMoonPhase } from '../src/moonphase.js';
 import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
 import { openCardPicker, openCardSpread } from './card-picker.js';
+import { openOverview } from './overview.js';
 
 export function renderChat(entityId, readingId, container) {
   const entity = getEntityById(entityId);
@@ -31,6 +32,7 @@ export function renderChat(entityId, readingId, container) {
         </div>
         <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
           <button class="btn-icon" id="clear-history-btn" title="ล้างประวัติการสนทนาทั้งหมด">🗑️</button>
+          <button class="btn-icon" id="overview-btn" title="ภาพรวมพี่ — เม้ามอยจากไพ่ที่ออกมา">📜</button>
           <button class="btn-icon" id="edit-entity-btn" title="แก้ไข profile">✏️</button>
         </div>
         <div class="moon-badge" title="${moon.meaningTH}">${moon.emoji} ${moon.nameTH}</div>
@@ -99,6 +101,7 @@ export function renderChat(entityId, readingId, container) {
 
   // Edit entity
   container.querySelector('#edit-entity-btn').addEventListener('click', () => navigate(`#/entity/${entityId}`));
+  container.querySelector('#overview-btn').addEventListener('click', () => openOverview(entity));
 
   // Card picker
   const questionInput = container.querySelector('#question-input');
@@ -267,11 +270,12 @@ export function renderChat(entityId, readingId, container) {
           styleExamples: styleExamplesFor(entity.id, getFavorites()),
           recentGestures: recentGesturesFor(readings.filter(r => r.id !== reading.id))
         };
-        const { text: rawText, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
+        const { text: rawText, usage, careful } = await callVoice(entity, context, question, decode, prev, (_, full) => {
           contentEl.innerHTML = formatVoice(enforceVoice(full, decode, entity) || full);
           chatMessages.scrollTop = chatMessages.scrollHeight;
         }, voiceExtras);
         const text = enforceVoice(rawText, decode, entity) || rawText;
+        reading.careful = !!careful;
         contentEl.innerHTML = formatVoice(text);
 
         contentEl.classList.remove('streaming');
@@ -598,6 +602,7 @@ function renderDecodePanel(panel, reading) {
     d.answer ? `คำตอบหลัก: ${esc(d.answer)}${d.answer_cards?.length ? ` (${names(d.answer_cards)})` : ''}` : '',
     d.off_topic ? '↪ ไพ่ไม่ได้ตอบสิ่งที่ถามตรงๆ — พี่พูดเรื่องที่ไพ่บอกแทน' : '',
     reading.continued ? '🔗 อ่านต่อจากเรื่องก่อนหน้า' : '',
+    reading.careful ? '🛡️ ตอบในโหมดระวัง (ตัวกรองของ Gemini บล็อกรอบแรก) อาจหวานน้อยกว่าปกติ' : '',
     d.assumption && d.assumption.holds === false ? `ที่ถามว่า "${esc(d.assumption.text)}" ไม่ตรง — จริงๆ คือ ${esc(d.assumption.actual)}` : '',
     d.nonverbal?.channel && d.nonverbal.channel !== 'none' ? `ภาษากาย: ${esc(d.nonverbal.meaning)}` : '',
     d.hesitation?.value ? 'ลังเลก่อนตอบ' : '',
@@ -657,10 +662,11 @@ function bindRevoice(readingEl, reading, entity) {
         styleExamples: styleExamplesFor(entity.id, getFavorites().filter(f => f.reading_id !== reading.id)),
         recentGestures: recentGesturesFor(getReadingsByEntity(reading.entity_id).filter(r => r.id !== reading.id))
       };
-      const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
+      const { text: raw, usage, careful } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
         contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode, entity) || full);
       }, voiceExtras);
       const text = enforceVoice(raw, reading.decode, entity) || raw;
+      reading.careful = !!careful;
       contentEl.innerHTML = formatVoice(text);
       const msg = reading.messages?.[0];
       if (msg) { msg.content = text; msg.tokens = usage; } else reading.messages = [{ id: `msg_${Date.now()}`, role: 'assistant', content: text, tokens: usage }];
