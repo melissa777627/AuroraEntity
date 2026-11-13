@@ -1,5 +1,5 @@
 import { getEntityById, getReadingsByEntity, saveReading, deleteReading, clearEntityReadings, saveFavorite, removeFavorite, isFavorited, getReadingById, getEntityVibe, saveEntityVibe } from '../src/storage.js';
-import { callEntityVoice, callAnalysis, callEntityVibe } from '../src/api.js';
+import { callAnalysis, callEntityVibe, callDecode, callVoice } from '../src/api.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
@@ -14,6 +14,7 @@ export function renderChat(entityId, readingId, container) {
 
   // Inject ambient style
   injectEntityStyle(entity);
+  injectReadingStyle();
 
   const moon = getMoonPhase();
   const settings = getSettings();
@@ -99,20 +100,49 @@ export function renderChat(entityId, readingId, container) {
   container.querySelector('#edit-entity-btn').addEventListener('click', () => navigate(`#/entity/${entityId}`));
 
   // Card picker
+  const questionInput = container.querySelector('#question-input');
+  const cardsDisplay = container.querySelector('#selected-cards-display');
+
+  // One question, one draw: the question must be set before drawing,
+  // and stays locked to the drawn cards until the reading is sent or abandoned.
+  function requireQuestion() {
+    if (questionInput.value.trim()) return true;
+    const errEl = container.querySelector('#submit-error');
+    errEl.textContent = 'ตั้งคำถามก่อน แล้วค่อยจั่วไพ่';
+    errEl.style.display = 'block';
+    questionInput.focus();
+    return false;
+  }
+
+  function setDrawn(picked) {
+    selectedCards = picked;
+    questionInput.readOnly = true;
+    questionInput.classList.add('question-locked');
+    container.querySelector('#submit-error').style.display = 'none';
+    renderSelectedCards(cardsDisplay, selectedCards, abandonDraw);
+  }
+
+  function abandonDraw() {
+    if (selectedCards.length && !confirm('ทิ้งคำถามและไพ่ชุดนี้ไหม?')) return;
+    selectedCards = [];
+    questionInput.readOnly = false;
+    questionInput.classList.remove('question-locked');
+    questionInput.value = '';
+    renderSelectedCards(cardsDisplay, [], abandonDraw);
+  }
+
   container.querySelector('#pick-cards-btn').addEventListener('click', async () => {
-    const picked = await openCardPicker(settings.defaultSpread || '3card', selectedCards);
-    if (picked.length > 0) {
-      selectedCards = picked;
-      renderSelectedCards(container.querySelector('#selected-cards-display'), selectedCards);
-    }
+    if (selectedCards.length) { showToast('จั่วไพ่ไปแล้ว — กด ✕ ถ้าจะทิ้งชุดนี้'); return; }
+    if (!requireQuestion()) return;
+    const picked = await openCardPicker(settings.defaultSpread || '3card', []);
+    if (picked.length > 0) setDrawn(picked);
   });
 
   container.querySelector('#spread-cards-btn').addEventListener('click', async () => {
-    const picked = await openCardSpread(settings.defaultSpread || '3card', selectedCards);
-    if (picked.length > 0) {
-      selectedCards = picked;
-      renderSelectedCards(container.querySelector('#selected-cards-display'), selectedCards);
-    }
+    if (selectedCards.length) { showToast('จั่วไพ่ไปแล้ว — กด ✕ ถ้าจะทิ้งชุดนี้'); return; }
+    if (!requireQuestion()) return;
+    const picked = await openCardSpread(settings.defaultSpread || '3card', [], questionInput.value.trim());
+    if (picked.length > 0) setDrawn(picked);
   });
 
   // Submit
@@ -127,15 +157,15 @@ export function renderChat(entityId, readingId, container) {
     const question = container.querySelector('#question-input').value.trim();
     const errEl = container.querySelector('#submit-error');
 
-    if (!question && selectedCards.length === 0) {
-      errEl.textContent = 'กรุณาใส่คำถามหรือเลือกไพ่';
+    if (!question || selectedCards.length === 0) {
+      errEl.textContent = !question ? 'กรุณาใส่คำถาม' : 'จั่วไพ่ก่อนนะ — พี่ตอบผ่านไพ่';
       errEl.style.display = 'block';
       return;
     }
     errEl.style.display = 'none';
 
-    // Build history from current readings (last 6 messages)
-    const history = buildHistory(readings);
+    // Previous exchanges, so a follow-up question is understood in context
+    const prev = readings.slice(-3);
 
     const readingId = `read_${Date.now()}`;
     const reading = {
@@ -152,7 +182,9 @@ export function renderChat(entityId, readingId, container) {
     container.querySelector('#context-input').value = '';
     container.querySelector('#question-input').value = '';
     selectedCards = [];
-    renderSelectedCards(container.querySelector('#selected-cards-display'), []);
+    questionInput.readOnly = false;
+    questionInput.classList.remove('question-locked');
+    renderSelectedCards(cardsDisplay, [], abandonDraw);
 
     // Add separator + user bubble + skeleton entity bubble
     const readingEl = document.createElement('div');
@@ -161,7 +193,7 @@ export function renderChat(entityId, readingId, container) {
       <div class="reading-separator">${formatDate(reading.date)}</div>
       ${reading.cards.length ? `
       <div class="reading-cards-row">
-        ${reading.cards.map(c => `<span class="card-chip${c.reversed?' reversed':''}">${c.name}${c.reversed?' ↕':''}</span>`).join('')}
+        ${reading.cards.map(cardChipHtml).join('')}
       </div>` : ''}
       <div class="user-bubble">
         <div class="user-bubble-avatar">${getSettings().userAvatar || '🌸'}</div>
@@ -194,10 +226,19 @@ export function renderChat(entityId, readingId, container) {
       submitBtn.textContent = '⏳';
 
       try {
-        const { text, usage } = await callEntityVoice(entity, context, question, reading.cards, history, (_, full) => {
-          contentEl.textContent = full;
+        contentEl.innerHTML = TYPING_DOTS;
+        if (!reading.decode) reading.decode = await callDecode(entity, context, question, reading.cards, prev);
+        const decode = reading.decode;
+
+        // Hesitation backed by the cards: let the pause be felt, not described
+        if (decode.hesitation?.value) await new Promise(r => setTimeout(r, 1300));
+
+        contentEl.textContent = '';
+        const { text, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
+          contentEl.innerHTML = formatVoice(full);
           chatMessages.scrollTop = chatMessages.scrollHeight;
         });
+        contentEl.innerHTML = formatVoice(text);
 
         contentEl.classList.remove('streaming');
         submitBtn.disabled = false;
@@ -213,22 +254,8 @@ export function renderChat(entityId, readingId, container) {
         bindBubbleActions(actionsEl, msgId, reading, entity, text, readingEl);
         inputArea?.classList.add('collapsed');
 
-        if (reading.cards?.length) {
-          const analysisPanel = readingEl.querySelector(`#analysis-${readingId}`);
-          analysisPanel.classList.add('open');
-          analysisPanel.innerHTML = `<div class="analysis-inner"><div class="analysis-loading"><div class="spinner"></div>กำลังอ่านพลังงาน...</div></div>`;
-          callAnalysis(entity, context, question, reading.cards)
-            .then(result => {
-              if (!getReadingById(reading.id)) return;
-              reading.analysis = result;
-              saveReading(reading);
-              renderAnalysis(analysisPanel, result);
-            })
-            .catch(() => {
-              analysisPanel.classList.remove('open');
-              showToast('วิเคราะห์ไพ่ไม่สำเร็จ', 'error');
-            });
-        }
+        renderDecodePanel(readingEl.querySelector(`#analysis-${readingId}`), reading);
+        bindFollowup(readingEl, reading, container);
 
       } catch (err) {
         contentEl.classList.remove('streaming');
@@ -254,7 +281,7 @@ function appendReading(chatMessages, reading, entity) {
     <div class="reading-separator">${formatDate(reading.date)}</div>
     ${reading.cards?.length ? `
     <div class="reading-cards-row">
-      ${reading.cards.map(c => `<span class="card-chip${c.reversed?' reversed':''}">${c.name}</span>`).join('')}
+      ${reading.cards.map(cardChipHtml).join('')}
     </div>` : ''}
     <div class="user-bubble">
       <div class="user-bubble-avatar">${getSettings().userAvatar || '🌸'}</div>
@@ -269,7 +296,7 @@ function appendReading(chatMessages, reading, entity) {
         <div class="entity-icon-badge">${entity.icon || '🌙'}</div>
         <span class="bubble-entity-name">${esc(entity.name)}</span>
       </div>
-      <div class="bubble-content">${esc(voice.content)}</div>
+      <div class="bubble-content">${formatVoice(voice.content)}</div>
       <div class="bubble-actions" id="actions-${reading.id}">
         ${buildBubbleActions(msgId, reading, entity, voice.content, voice.tokens)}
       </div>
@@ -281,7 +308,10 @@ function appendReading(chatMessages, reading, entity) {
     const actionsEl = el.querySelector(`#actions-${reading.id}`);
     bindBubbleActions(actionsEl, msgId, reading, entity, voice.content, el);
 
-    if (reading.analysis) {
+    if (reading.decode) {
+      renderDecodePanel(el.querySelector(`#analysis-${reading.id}`), reading);
+      bindFollowup(el, reading, chatMessages.closest('.chat-screen'));
+    } else if (reading.analysis) {
       const analysisPanel = el.querySelector(`#analysis-${reading.id}`);
       if (analysisPanel) {
         analysisPanel.classList.add('open');
@@ -297,7 +327,7 @@ function buildBubbleActions(msgId, reading, entity, content, usage) {
   const fav = isFavorited(msgId);
   const tokenText = usage?.totalTokenCount ? `<span class="token-badge" title="prompt: ${usage.promptTokenCount ?? '?'} / output: ${usage.candidatesTokenCount ?? '?'}">⚡ ${usage.totalTokenCount} tokens</span>` : '';
   // Show analyze button only for old readings without cached analysis
-  const analyzeBtn = (!reading.analysis && reading.cards?.length)
+  const analyzeBtn = (!reading.decode && !reading.analysis && reading.cards?.length)
     ? `<button class="btn-analysis-toggle" data-reading-id="${reading.id}">📖 วิเคราะห์ไพ่ ▼</button>`
     : '';
   return `
@@ -416,35 +446,16 @@ export function renderAnalysis(panel, data) {
   });
 }
 
-function renderSelectedCards(display, cards) {
+function renderSelectedCards(display, cards, onAbandon) {
   if (!cards.length) {
-    display.innerHTML = '<span class="no-cards-text">ยังไม่ได้เลือกไพ่</span>';
+    display.innerHTML = '<span class="no-cards-text">ยังไม่ได้จั่วไพ่</span>';
     return;
   }
-  display.innerHTML = cards.map((c, i) => `
-    <div class="selected-card-chip">
-      ${c.position_label ? `<span style="color:var(--text-soft);font-size:0.65rem">${esc(c.position_label)}:</span>` : ''}
-      ${esc(c.name)}${c.reversed ? ' ↕' : ''}
-      <span class="remove-card" data-idx="${i}">✕</span>
-    </div>`).join('');
-
-  display.querySelectorAll('.remove-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      cards.splice(parseInt(btn.dataset.idx), 1);
-      renderSelectedCards(display, cards);
-    });
-  });
-}
-
-function buildHistory(readings) {
-  const msgs = [];
-  for (const r of readings.slice(-3)) {
-    const cardNames = r.cards?.map(c => c.name).join(', ') || 'ไม่มีไพ่';
-    const opening = r.messages?.[0]?.content?.slice(0, 80)?.trim();
-    msgs.push({ role: 'user', content: `[เคยถาม] ${r.question || '(ไม่มีคำถาม)'} | ไพ่: ${cardNames}` });
-    msgs.push({ role: 'model', content: `(ตอบไปแล้ว — ห้ามซ้ำสไตล์และรูปแบบเดิม${opening ? ` เช่น: "${opening}..."` : ''})` });
-  }
-  return msgs;
+  // Drawn cards can't be swapped one by one — only the whole draw can be abandoned
+  display.innerHTML = cards.map(c => `
+    <div class="selected-card-chip${c.jumper ? ' jumper' : ''}">${c.jumper ? '✨ ' : ''}${esc(c.name)}</div>`).join('') +
+    `<button class="btn-icon abandon-draw" title="ทิ้งคำถามและไพ่ชุดนี้">✕</button>`;
+  display.querySelector('.abandon-draw')?.addEventListener('click', () => onAbandon?.());
 }
 
 function injectEntityStyle(entity) {
@@ -490,3 +501,110 @@ function initChatVibe(container, entity) {
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function formatDate(s) { try { return new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return s || ''; } }
+
+// ── Two-step reading helpers ─────────────────────────────────────────────
+const TYPING_DOTS = '<span class="reading-dots"><span></span><span></span><span></span></span>';
+
+function cardChipHtml(c) {
+  return `<span class="card-chip${c.jumper ? ' jumper' : ''}">${c.jumper ? '✨ ' : ''}${esc(c.name)}</span>`;
+}
+
+// Escape, then style *(action)* as body language
+function formatVoice(text) {
+  return esc(text || '').replace(/\*\(([^*\n]*?)\)\*/g, '<span class="voice-action">($1)</span>');
+}
+
+const ABOUT_TH = { entity: 'พี่', user: 'หนู', unclear: 'ไม่ชัด' };
+const CHANNEL_LABEL = {
+  affect: 'สีหน้า/อารมณ์', leak: 'อารมณ์รั่ว', illustrator: 'ท่าประกอบคำพูด', emblem: 'ท่าแทนคำ',
+  regulator: 'ท่าคุมบทสนทนา', adaptor: 'ท่าคลายอึดอัด', proxemic: 'ระยะห่าง'
+};
+
+function renderDecodePanel(panel, reading) {
+  const d = reading.decode;
+  if (!panel || !d) return;
+  const byId = Object.fromEntries((reading.cards || []).map(c => [c.id, c]));
+  const names = ids => ids.map(id => esc(byId[id]?.name || id)).join(', ');
+
+  const msgs = d.messages.map(m => `
+    <li class="decode-msg${m.clarity === 'unclear' ? ' unclear' : ''}">
+      <span class="decode-about">[${ABOUT_TH[m.about] || m.about}]</span>
+      ${m.core ? '⭐ ' : ''}${esc(m.text)}${m.weight > 1 ? ` <span class="decode-tag">ย้ำ×${m.weight}</span>` : ''}${m.directive ? ' <span class="decode-tag">สั่ง</span>' : ''}
+      <span class="decode-cards">(${names(m.cards)})</span>
+      ${m.clarity === 'unclear' ? `<div class="decode-sub">อาจหมายถึง: ${esc(m.alt || '-')}${m.safe ? ` → พูดได้แค่: "${esc(m.safe)}"` : ''}</div>` : ''}
+    </li>`).join('');
+
+  const notes = (d.cards || []).map(c => `
+    <li><strong>${names([c.id])}</strong> <span class="decode-about">[${ABOUT_TH[c.about] || c.about || '-'}]</span> ${esc(c.reading || '')}${c.why ? `<div class="decode-sub">${esc(c.why)}</div>` : ''}</li>`).join('');
+
+  const extras = [
+    d.assumption && d.assumption.holds === false ? `ข้อสันนิษฐาน "${esc(d.assumption.text)}" ไม่ตรง → ${esc(d.assumption.actual)}` : '',
+    d.nonverbal?.channel && d.nonverbal.channel !== 'none'
+      ? `ภาษากาย: ${CHANNEL_LABEL[d.nonverbal.channel] || d.nonverbal.channel} — ${esc(d.nonverbal.meaning)} (${names(d.nonverbal.cards)})`
+      : 'ภาษากาย: ไม่มี',
+    `น้ำเสียง: ${esc(d.tone)} · ความแรง ${d.intensity}/3${d.hesitation?.value ? ' · ลังเล' : ''}${d.silent ? ' · เงียบ' : ''}`,
+    d.unused?.length ? `⚠️ ไพ่ที่ไม่ถูกนับในสาร: ${names(d.unused)}` : ''
+  ].filter(Boolean).map(x => `<div class="decode-extra">${x}</div>`).join('');
+
+  panel.classList.add('open');
+  panel.innerHTML = `
+    <div class="analysis-inner">
+      <button class="btn-cards-expand decode-toggle">🔒 สารที่ส่งมา ▼</button>
+      <div class="analysis-cards-detail decode-body">
+        <ul class="decode-list">${msgs}</ul>
+        ${extras}
+        ${notes ? `<div class="decode-notes-title">ไพ่แต่ละใบ</div><ul class="decode-list">${notes}</ul>` : ''}
+      </div>
+    </div>`;
+  panel.querySelector('.decode-toggle').addEventListener('click', function() {
+    const body = panel.querySelector('.decode-body');
+    const open = body.classList.toggle('open');
+    this.textContent = open ? '🔓 สารที่ส่งมา ▲' : '🔒 สารที่ส่งมา ▼';
+  });
+}
+
+// A suggested follow-up only fills the question box — the user still draws cards as usual
+function bindFollowup(readingEl, reading, screen) {
+  const q = reading.decode?.followup;
+  const actions = readingEl.querySelector('.bubble-actions');
+  if (!q || !actions || actions.querySelector('.followup-chip')) return;
+  const btn = document.createElement('button');
+  btn.className = 'followup-chip';
+  btn.textContent = `💬 ${q}`;
+  btn.title = 'ใส่เป็นคำถามถัดไป (ยังต้องจั่วไพ่เอง)';
+  btn.addEventListener('click', () => {
+    const input = screen?.querySelector('#question-input');
+    if (!input || input.readOnly) { showToast('มีคำถามที่จั่วไพ่ค้างอยู่'); return; }
+    input.value = q;
+    screen.querySelector('#chat-input-area')?.classList.remove('collapsed');
+    input.focus();
+  });
+  actions.prepend(btn);
+}
+
+function injectReadingStyle() {
+  if (document.getElementById('reading-style')) return;
+  const style = document.createElement('style');
+  style.id = 'reading-style';
+  style.textContent = `
+    .voice-action { display:inline-block; font-style:italic; color:var(--text-soft); font-size:0.9em; }
+    .reading-dots { display:inline-flex; gap:4px; padding:4px 0; }
+    .reading-dots span { width:6px; height:6px; border-radius:50%; background:var(--text-soft); opacity:0.5; animation:readingDot 1.2s infinite; }
+    .reading-dots span:nth-child(2) { animation-delay:0.2s; }
+    .reading-dots span:nth-child(3) { animation-delay:0.4s; }
+    @keyframes readingDot { 0%,80%,100% { opacity:0.25; transform:translateY(0); } 40% { opacity:0.9; transform:translateY(-3px); } }
+    .bubble-content.streaming:has(.reading-dots)::after { display:none; }
+    .question-locked { opacity:0.75; }
+    .card-chip.jumper, .selected-card-chip.jumper { box-shadow:0 0 0 1.5px var(--accent); }
+    .abandon-draw { font-size:0.8rem; opacity:0.6; }
+    .followup-chip { font-size:0.75rem; padding:3px 10px; border-radius:12px; border:1px dashed var(--accent); background:transparent; color:var(--text); cursor:pointer; max-width:100%; text-align:left; }
+    .decode-list { list-style:none; padding:0; margin:6px 0; display:flex; flex-direction:column; gap:6px; font-size:0.82rem; line-height:1.55; }
+    .decode-msg.unclear { opacity:0.8; }
+    .decode-about { font-size:0.7rem; color:var(--text-soft); }
+    .decode-tag { font-size:0.65rem; padding:1px 6px; border-radius:8px; background:var(--accent); }
+    .decode-cards, .decode-sub { font-size:0.72rem; color:var(--text-soft); }
+    .decode-extra { font-size:0.75rem; color:var(--text-soft); margin-top:4px; }
+    .decode-notes-title { font-size:0.72rem; font-weight:600; color:var(--text-soft); margin-top:10px; }
+  `;
+  document.head.appendChild(style);
+}

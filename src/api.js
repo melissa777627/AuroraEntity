@@ -1,4 +1,5 @@
 import { getSettings } from './storage.js';
+import { buildDecodeSystemPrompt, buildDecodeUserPrompt, buildVoiceSystemPrompt, buildVoiceUserPrompt, validateDecode } from './reading-prompts.js';
 import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt, buildHandcuffBickerPrompt, buildPollChaosPrompt, buildVetoGrumblePrompt, buildReportCardPrompt } from './prompts.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -55,6 +56,83 @@ export async function callEntityVoice(entity, context, question, cards, history 
     }
   }
   return { text: full, usage };
+}
+
+// ── Two-step reading: decode (cards → raw message) then voice ──────────────
+export async function callDecode(entity, context, question, cards, prev = []) {
+  const { key, model } = cfg();
+  const decodeModel = getSettings().decodeModel || model;
+  const body = JSON.stringify({
+    system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity) }] },
+    contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, cards, prev) }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+  });
+
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(`${BASE}/${decodeModel}:generateContent?key=${key}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API Error ${res.status}`);
+    }
+    const data = await res.json();
+    const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+    let clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) clean = m[0];
+    try {
+      const decode = validateDecode(JSON.parse(clean), cards);
+      if (decode.messages.length) return decode;
+      lastErr = new Error('ถอดสารไม่สำเร็จ (ไม่มีสารที่มีไพ่รองรับ)');
+    } catch {
+      lastErr = new Error('ถอดสารไม่สำเร็จ (รูปแบบผิด)');
+    }
+  }
+  throw lastErr;
+}
+
+export async function callVoice(entity, context, question, decode, prev = [], onChunk) {
+  const { key, model } = cfg();
+  const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse&key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: buildVoiceSystemPrompt(entity) }] },
+      contents: [{ role: 'user', parts: [{ text: buildVoiceUserPrompt(context, question, decode, prev) }] }],
+      generationConfig: { temperature: 0.6, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `API Error ${res.status}`);
+  }
+
+  let full = '';
+  let usage = null;
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (!raw || raw === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(raw);
+        const chunk = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (chunk) { full += chunk; onChunk?.(chunk, full); }
+        if (parsed?.usageMetadata) usage = parsed.usageMetadata;
+      } catch {}
+    }
+  }
+  return { text: full.trim(), usage };
 }
 
 export async function callCardOfDayMessage(card) {
