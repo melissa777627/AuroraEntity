@@ -283,223 +283,314 @@ function cleanup() {
   resolveCallback = null;
 }
 
-// ── Face-down card spread (hold-to-shuffle) ────────────────────
+// ── Face-down draw as a ritual sheet (hold-to-shuffle → fan → pick → reveal) ──
+// Same rules as before: order fixed at the release instant, jumper derived from that
+// state, picked cards locked, and the whole draw remembered per question text.
 const EL_EMOJI = { 'ไฟ': '🔥', 'น้ำ': '🌊', 'อากาศ': '💨', 'ดิน': '🌿' };
-const EL_COLOR = { 'ไฟ': '#ff9050', 'น้ำ': '#5bc8ef', 'อากาศ': '#b39ddb', 'ดิน': '#66bb6a' };
 
-// One question, one draw: released deck + jumper + flipped cards are kept per question text.
 const spreadStates = new Map();
-
-// Jumper chance ≈ 1 in 8, decided only from the state captured at the release instant.
 const JUMPER_ONE_IN = 8;
+const FAN_VISIBLE = 13;
+const FAN_STEP_DEG = 7.5;
+const DRAG_PX_PER_CARD = 26;
 
-export async function openCardSpread(spreadType = '3card', existingCards = [], question = '') {
+let sheetEl = null;
+
+// Resolves with: array of cards (send now), 'manual' (enter physical cards), or [] (closed).
+export async function openCardSpread(spreadType = '3card', existingCards = [], question = '', entity = null) {
   const data = await loadCards();
   const qKey = String(question || '').trim();
+  const who = { icon: entity?.icon || '🌙', name: entity?.name || 'พี่' };
 
   let state = qKey ? spreadStates.get(qKey) : null;
   if (!state) {
-    const pre = (existingCards || []).filter(Boolean);
-    const preMain = pre.filter(c => !c.jumper).map(c => cleanCard(c));
-    const preJumper = pre.find(c => c.jumper);
-    const usedIds = new Set(pre.map(c => c.id));
     state = {
       needed: SPREAD_COUNT[normSpread(spreadType)],
-      deck: (data.tarot || []).filter(c => !usedIds.has(c.id)), // order fixed only on release
+      deck: [...(data.tarot || [])],
       released: false,
-      jumper: preJumper ? cleanCard(preJumper, true) : null,
-      selected: preMain
+      jumper: null,
+      selected: []
     };
     if (qKey) spreadStates.set(qKey, state);
   }
   const needed = state.needed;
 
-  const overlay = document.getElementById('modal-overlay');
-  overlay.classList.remove('hidden');
+  return new Promise(resolve => {
+    let holding = false, rafId = 0, entropy = 0, lastBuzz = 0;
+    let offset = 0;               // fan rotation, in cards (fractional while dragging)
+    let drag = null;              // { x, start, moved }
+    let revealed = false;
 
-  // Hold-to-shuffle runtime (not persisted)
-  let holding = false;
-  let rafId = 0;
-  let passes = 0;
-  let entropy = 0;   // 32-bit pool, updated every frame (crypto ⊕ timing)
-
-  function shufflePass() {
-    fisherYates(state.deck);
-    const t = performance.now();
-    const timing = (Math.floor(t * 1000) ^ Math.floor((t % 1) * 0x7fffffff)) >>> 0;
-    // Rotating a uniformly shuffled deck by a timing-derived offset keeps it uniform
-    const rot = timing % state.deck.length;
-    if (rot) state.deck = state.deck.slice(rot).concat(state.deck.slice(0, rot));
-    entropy = (randU32() ^ timing ^ Math.imul(entropy, 0x9e3779b1)) >>> 0;
-    passes++;
-  }
-
-  function frame() {
-    if (!holding) return;
-    shufflePass();
-    const counter = overlay.querySelector('#shuffle-count');
-    if (counter) counter.textContent = `สับแล้ว ${passes} รอบ`;
-    rafId = requestAnimationFrame(frame);
-  }
-
-  function startHold(e) {
-    if (state.released || holding) return;
-    e.preventDefault();
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-    holding = true;
-    shufflePass(); // at least one pass even on a quick tap
-    overlay.querySelector('.card-spread-modal')?.classList.add('shuffling');
-    rafId = requestAnimationFrame(frame);
-  }
-
-  function release() {
-    if (!holding) return;
-    holding = false;
-    cancelAnimationFrame(rafId);
-    // Final state = exactly what the deck looked like at release. Jumper is derived from it.
-    let h = entropy;
-    for (let i = 0; i < Math.min(8, state.deck.length); i++) {
-      for (const ch of state.deck[i].id) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
-    }
-    h = (h ^ (h >>> 16)) >>> 0;
-    if (!state.jumper && state.deck.length > needed && (h % JUMPER_ONE_IN) === 0) {
-      state.jumper = cleanCard(state.deck[0], true); // top card flies out
-      state.deck = state.deck.slice(1);
-    }
-    state.released = true;
-    state.justJumped = !!state.jumper;
-    render();
-  }
-
-  function close(result) {
-    holding = false;
-    cancelAnimationFrame(rafId);
-    const cb = resolveCallback;
-    cleanup();
-    cb?.(result);
-  }
-
-  function chip(c, label) {
-    const color = EL_COLOR[c.element] || '#b39ddb';
-    return `<div class="spread-sel-chip${c.jumper ? ' jumper' : ''}" data-id="${c.id}" style="--chip-color:${color}">
-      <span>${EL_EMOJI[c.element] || '✨'}</span>
-      <div>
-        ${label ? `<div class="spread-sel-label">${label}</div>` : ''}
-        <div class="spread-sel-name">${esc(c.nameTH || c.name)}</div>
-      </div>
-      <span class="spread-sel-lock" title="ล็อกแล้ว">🔒</span>
-    </div>`;
-  }
-
-  function render() {
-    const selIds = new Set(state.selected.map(c => c.id));
-    const done = needed && state.selected.length >= needed;
-    const canConfirm = needed ? state.selected.length >= needed : state.selected.length > 0;
-
-    let hint;
-    if (!state.released && !done) hint = 'กดค้างเพื่อสับ · ปล่อยเมื่อรู้สึกว่าพอ';
-    else if (!done) hint = `แตะไพ่ที่คว่ำหน้าเพื่อเปิด${needed ? ` (ต้องการ ${needed} ใบ)` : ''} · เปิดแล้วเปลี่ยนไม่ได้`;
-    else hint = 'ครบแล้ว 🔒';
-
-    overlay.innerHTML = `
-      <div class="modal modal-lg card-spread-modal${state.released ? ' released' : ''}">
-        <div class="modal-header">
-          <span class="modal-title">✨ เลือกไพ่จากเดค</span>
-          <button class="btn-icon" id="spread-close">✕</button>
+    sheetEl?.remove();
+    sheetEl = document.createElement('div');
+    sheetEl.className = 'ritual-backdrop';
+    sheetEl.innerHTML = `
+      <div class="ritual-sheet" role="dialog" aria-label="สับไพ่">
+        <div class="ritual-grab"></div>
+        <button class="ritual-close" aria-label="ปิด">✕</button>
+        <div class="ritual-q">🔒 <span>${esc(qKey || '(ไม่มีคำถาม)')}</span></div>
+        <div class="ritual-hint"></div>
+        <div class="ritual-slots"></div>
+        <div class="ritual-stage">
+          <div class="ritual-deck" aria-label="กดค้างเพื่อสับ">
+            <div class="ritual-ring"></div>
+            ${'<div class="ritual-deck-card"><div class="rcard-back"></div></div>'.repeat(6)}
+            <div class="ritual-presence"><div class="ritual-avatar">${esc(who.icon)}</div><small>${esc(who.name)}กำลังฟัง</small></div>
+          </div>
+          <div class="ritual-fan" hidden><div class="ritual-swipe">‹ ปัดเพื่อดูไพ่ ›</div></div>
         </div>
-
-        ${qKey ? `<div class="spread-question">🔒 <span>${esc(qKey)}</span></div>` : ''}
-
-        ${state.jumper ? `
-          <div class="spread-jumper${state.justJumped ? ' just-jumped' : ''}">
-            <div class="spread-jumper-title">✨ มีไพ่กระเด็นออกมา</div>
-            ${chip(state.jumper, 'ไพ่กระเด็น')}
-          </div>` : ''}
-
-        <div class="spread-selected-row" id="spread-selected-row">
-          ${state.selected.length === 0
-            ? `<span class="spread-hint">${hint}</span>`
-            : state.selected.map(c => chip(c, '')).join('') + `<span class="spread-hint">${done ? 'ครบแล้ว 🔒' : ''}</span>`}
-        </div>
-
-        ${!state.released && !done ? `
-          <div class="shuffle-zone">
-            <button class="shuffle-btn" id="shuffle-btn" type="button">
-              <span class="shuffle-deck"><span></span><span></span><span></span></span>
-              <span class="shuffle-btn-text">กดค้างเพื่อสับ · ปล่อยเมื่อรู้สึกว่าพอ</span>
-              <span class="shuffle-count" id="shuffle-count"></span>
-            </button>
-          </div>` : ''}
-
-        <div class="card-spread-grid${state.released ? '' : ' locked'}" id="card-spread-grid">
-          ${state.deck.map(card => {
-            const isFlipped = selIds.has(card.id);
-            const color = EL_COLOR[card.element] || '#b39ddb';
-            return `<div class="spread-card${isFlipped ? ' flipped selected' : ''}" data-id="${card.id}">
-              <div class="spread-card-inner">
-                <div class="spread-card-back"></div>
-                <div class="spread-card-front" style="--card-color:${color}">
-                  <div class="spread-front-el">${EL_EMOJI[card.element] || '✨'}</div>
-                  <div class="spread-front-name">${isFlipped ? esc(card.nameTH || card.name) : ''}</div>
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-
-        <div class="modal-footer">
-          <span style="font-size:0.82rem;color:var(--text-soft);margin-right:auto">
-            ${needed ? `${state.selected.length}/${needed} ใบ` : `${state.selected.length} ใบ`}${state.jumper ? ' + ✨1' : ''}
-          </span>
-          <button class="btn btn-ghost" id="spread-cancel">ยกเลิก</button>
-          <button class="btn btn-primary" id="spread-confirm" ${canConfirm ? '' : 'disabled'}>✅ ยืนยัน</button>
-        </div>
+        <button class="ritual-send" hidden>ส่งถึง${esc(who.name)} 🌸</button>
+        <button class="ritual-manual">จั่วจากไพ่จริง? กรอกเอง</button>
       </div>`;
-    state.justJumped = false;
+    document.body.appendChild(sheetEl);
+    requestAnimationFrame(() => sheetEl.classList.add('open'));
 
-    overlay.querySelector('#spread-close').addEventListener('click', () => close([]));
-    overlay.querySelector('#spread-cancel').addEventListener('click', () => close([]));
+    const $ = s => sheetEl.querySelector(s);
+    const hint = $('.ritual-hint'), slots = $('.ritual-slots'), deckEl = $('.ritual-deck'),
+      fan = $('.ritual-fan'), sendBtn = $('.ritual-send');
 
-    overlay.querySelector('#spread-confirm').addEventListener('click', () => {
-      const result = [
-        ...(state.jumper ? [cleanCard(state.jumper, true)] : []),
-        ...state.selected.map(c => cleanCard(c))
-      ];
-      close(result);
-    });
+    function finish(result) {
+      holding = false;
+      cancelAnimationFrame(rafId);
+      sheetEl.classList.remove('open');
+      const el = sheetEl;
+      setTimeout(() => el.remove(), 350);
+      if (sheetEl === el) sheetEl = null;
+      resolve(result);
+    }
+    $('.ritual-close').addEventListener('click', () => finish([]));
+    sheetEl.addEventListener('click', e => { if (e.target === sheetEl) finish([]); });
+    $('.ritual-manual').addEventListener('click', () => finish('manual'));
+    sendBtn.addEventListener('click', () => finish([
+      ...(state.jumper ? [cleanCard(state.jumper, true)] : []),
+      ...state.selected.map(c => cleanCard(c))
+    ]));
 
-    const btn = overlay.querySelector('#shuffle-btn');
-    if (btn) {
-      btn.addEventListener('pointerdown', startHold);
-      btn.addEventListener('pointerup', release);
-      btn.addEventListener('pointercancel', release);
-      btn.addEventListener('lostpointercapture', release);
-      btn.addEventListener('contextmenu', e => e.preventDefault());
-      // Fallback for browsers without pointer events
-      if (!window.PointerEvent) {
-        btn.addEventListener('touchstart', startHold, { passive: false });
-        btn.addEventListener('touchend', release);
-        btn.addEventListener('touchcancel', release);
-        btn.addEventListener('mousedown', startHold);
-        btn.addEventListener('mouseup', release);
-        btn.addEventListener('mouseleave', release);
+    // ── slots ──
+    function cardFace(c, face) {
+      return `<div class="rcard${face ? ' face' : ''}"><div class="rcard-back"></div>
+        <div class="rcard-front"><div class="rcard-sym">${EL_EMOJI[c.element] || '✨'}</div>
+        <div class="rcard-th">${esc(c.nameTH || c.name)}</div><div class="rcard-en">${esc(c.name)}</div></div></div>`;
+    }
+    function renderSlots() {
+      const n = needed || Math.max(state.selected.length, 1);
+      let html = state.jumper
+        ? `<div class="ritual-slot jumper" id="ritual-jslot"><span class="ritual-tag">✨ กระเด็น</span>${state.jumper.landed !== false ? cardFace(state.jumper, revealed) : ''}</div>`
+        : '';
+      for (let i = 0; i < n; i++) {
+        const c = state.selected[i];
+        html += `<div class="ritual-slot">${c ? cardFace(c, revealed) : '☾'}</div>`;
+      }
+      slots.innerHTML = html;
+    }
+    function done() { return needed ? state.selected.length >= needed : false; }
+    function setHint() {
+      if (!state.released) hint.textContent = 'หายใจลึกๆ นึกถึงพี่ แล้วกดค้างที่สำรับ';
+      else if (revealed) hint.textContent = 'ไพ่ที่ส่งมา';
+      else if (needed) hint.textContent = state.selected.length ? `อีก ${needed - state.selected.length} ใบ` : `แตะเลือก ${needed} ใบ · ปัดซ้ายขวาดูไพ่ทั้งสำรับ`;
+      else hint.textContent = 'แตะเลือกไพ่ได้เรื่อยๆ แล้วกดส่ง';
+    }
+
+    // ── hold to shuffle ──
+    function shufflePass() {
+      fisherYates(state.deck);
+      const t = performance.now();
+      const timing = (Math.floor(t * 1000) ^ Math.floor((t % 1) * 0x7fffffff)) >>> 0;
+      const rot = timing % state.deck.length;
+      if (rot) state.deck = state.deck.slice(rot).concat(state.deck.slice(0, rot));
+      entropy = (randU32() ^ timing ^ Math.imul(entropy, 0x9e3779b1)) >>> 0;
+      if (t - lastBuzz > 110 && navigator.vibrate) { try { navigator.vibrate(8); } catch {} lastBuzz = t; }
+    }
+    function frame() { if (!holding) return; shufflePass(); rafId = requestAnimationFrame(frame); }
+    function startHold(e) {
+      if (state.released || holding) return;
+      e.preventDefault();
+      try { deckEl.setPointerCapture(e.pointerId); } catch {}
+      holding = true;
+      shufflePass();
+      deckEl.classList.add('shuffling');
+      hint.textContent = 'สับอยู่… ปล่อยเมื่อรู้สึกว่าพอ';
+      rafId = requestAnimationFrame(frame);
+    }
+    function release() {
+      if (!holding) return;
+      holding = false;
+      cancelAnimationFrame(rafId);
+      deckEl.classList.remove('shuffling');
+      let h = entropy;
+      for (let i = 0; i < Math.min(8, state.deck.length); i++) {
+        for (const ch of state.deck[i].id) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+      }
+      h = (h ^ (h >>> 16)) >>> 0;
+      state.released = true;
+      if (state.deck.length > (needed || 1) && (h % JUMPER_ONE_IN) === 0) {
+        state.jumper = cleanCard(state.deck[0], true);
+        state.deck = state.deck.slice(1);
+        flyJumper();
+      } else {
+        showFan(true);
       }
     }
+    deckEl.addEventListener('pointerdown', startHold);
+    deckEl.addEventListener('pointerup', release);
+    deckEl.addEventListener('pointercancel', release);
+    deckEl.addEventListener('lostpointercapture', release);
+    deckEl.addEventListener('contextmenu', e => e.preventDefault());
 
-    overlay.querySelectorAll('.spread-card').forEach(el => {
-      el.addEventListener('click', () => {
-        if (!state.released) return;                       // must shuffle first
-        const id = el.dataset.id;
-        if (state.selected.some(c => c.id === id)) return;  // flipped cards are locked
-        if (needed && state.selected.length >= needed) return;
-        const card = state.deck.find(c => c.id === id);
-        if (!card) return;
-        state.selected.push(cleanCard(card));
-        render();
+    function flyJumper() {
+      hint.textContent = '✨ มีไพ่กระเด็นออกมา';
+      state.jumper.landed = false;
+      renderSlots();
+      const sheet = $('.ritual-sheet');
+      const sr = sheet.getBoundingClientRect(), dr = deckEl.getBoundingClientRect();
+      const jr = $('#ritual-jslot').getBoundingClientRect();
+      const fly = document.createElement('div');
+      fly.className = 'ritual-jump';
+      fly.innerHTML = cardFace(state.jumper, false);
+      fly.style.left = `${dr.left - sr.left + dr.width / 2 - 32}px`;
+      fly.style.top = `${dr.top - sr.top + 30}px`;
+      fly.style.setProperty('--jx', `${jr.left - dr.left - dr.width / 2 + 32}px`);
+      fly.style.setProperty('--jy', `${jr.top - dr.top - 30}px`);
+      sheet.appendChild(fly);
+      for (let i = 0; i < 10; i++) {
+        const s = document.createElement('span');
+        s.className = 'ritual-spark';
+        s.textContent = i % 2 ? '✦' : '✧';
+        s.style.left = `${dr.left - sr.left + dr.width / 2}px`;
+        s.style.top = `${dr.top - sr.top + 70}px`;
+        s.style.setProperty('--sx', `${Math.cos(i / 10 * 6.283) * 70}px`);
+        s.style.setProperty('--sy', `${Math.sin(i / 10 * 6.283) * 70}px`);
+        sheet.appendChild(s);
+        setTimeout(() => s.remove(), 900);
+      }
+      setTimeout(() => { fly.remove(); delete state.jumper.landed; renderSlots(); showFan(true); }, 1100);
+    }
+
+    // ── fan: a fixed pool of nodes, repositioned (never rebuilt) while dragging ──
+    // Rebuilding nodes mid-drag drops the touch on iOS, so nodes stay put and only move.
+    const pool = [];
+    function available() {
+      const ids = new Set(state.selected.map(c => c.id));
+      return state.deck.filter(c => !ids.has(c.id));
+    }
+    function showFan(intro) {
+      deckEl.hidden = true;
+      fan.hidden = false;
+      if (!pool.length) {
+        for (let k = 0; k < FAN_VISIBLE + 2; k++) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ritual-fan-card';
+          b.innerHTML = '<div class="rcard-back"></div>';
+          fan.insertBefore(b, $('.ritual-swipe'));
+          pool.push(b);
+        }
+      }
+      layoutFan(intro);
+      setHint();
+      renderSlots();
+    }
+    function layoutFan(intro) {
+      const avail = available();
+      const base = Math.floor(offset);
+      const frac = offset - base;
+      pool.forEach((b, k) => {
+        const slot = k - 1; // one hidden spare at each end
+        const len = avail.length || 1;
+        const idx = (((base + slot) % len) + len) % len;
+        b.dataset.id = avail[idx]?.id || '';
+        const angle = (slot - frac - (FAN_VISIBLE - 1) / 2) * FAN_STEP_DEG;
+        const edge = slot < 0 || slot >= FAN_VISIBLE;
+        b.style.opacity = edge || !avail.length ? '0' : '1';
+        b.style.pointerEvents = edge ? 'none' : '';
+        const t = `rotate(${angle}deg)`;
+        if (intro) {
+          b.style.transition = 'none';
+          b.style.transform = 'rotate(0deg) translateY(30px)';
+          requestAnimationFrame(() => {
+            b.style.transition = '';
+            setTimeout(() => { b.style.transform = t; }, 20 + Math.max(0, slot) * 35);
+          });
+        } else {
+          b.style.transform = t;
+        }
       });
+    }
+    fan.addEventListener('pointerdown', e => {
+      if (revealed) return;
+      drag = { x: e.clientX, start: offset, moved: false };
+      try { fan.setPointerCapture(e.pointerId); } catch {}
+      fan.classList.add('dragging');
     });
-  }
+    fan.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 6) drag.moved = true;
+      if (!drag.moved) return;
+      offset = drag.start - dx / DRAG_PX_PER_CARD;
+      layoutFan(false);
+    });
+    function endDrag(e) {
+      if (!drag) return;
+      const wasTap = !drag.moved;
+      drag = null;
+      fan.classList.remove('dragging');
+      offset = Math.round(offset);
+      layoutFan(false);
+      if (wasTap && e?.type === 'pointerup') {
+        const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('.ritual-fan-card');
+        if (hit?.dataset.id) pick(hit.dataset.id, hit);
+      }
+    }
+    fan.addEventListener('pointerup', endDrag);
+    fan.addEventListener('pointercancel', endDrag);
+    fan.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') { offset -= 1; layoutFan(false); }
+      if (e.key === 'ArrowRight') { offset += 1; layoutFan(false); }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('ritual-fan-card')) {
+        e.preventDefault();
+        pick(e.target.dataset.id, e.target);
+      }
+    });
 
-  render();
-  return new Promise(resolve => { resolveCallback = resolve; });
+    function pick(id, el) {
+      if (revealed || done()) return;
+      if (state.selected.some(c => c.id === id)) return;
+      const card = state.deck.find(c => c.id === id);
+      if (!card) return;
+      state.selected.push(cleanCard(card));
+      el.classList.add('picked');
+      setTimeout(() => { el.classList.remove('picked'); layoutFan(false); }, 260);
+      renderSlots();
+      setHint();
+      if (!needed) { sendBtn.hidden = false; return; }
+      if (done()) reveal();
+    }
+
+    function reveal() {
+      revealed = true;
+      fan.hidden = true;
+      $('.ritual-manual').hidden = true;
+      setHint();
+      renderSlots();
+      const faces = slots.querySelectorAll('.rcard');
+      revealed = false;
+      faces.forEach(f => f.classList.remove('face'));
+      revealed = true;
+      faces.forEach((f, n) => setTimeout(() => f.classList.add('face'), 350 + n * 380));
+      setTimeout(() => { sendBtn.hidden = false; sendBtn.focus(); }, 350 + faces.length * 380);
+    }
+
+    // ── initial view (reopening the same question restores the same draw) ──
+    if (!state.released) {
+      setHint();
+      renderSlots();
+    } else if (done()) {
+      deckEl.hidden = true;
+      reveal();
+    } else {
+      showFan(false);
+      if (!needed && state.selected.length) sendBtn.hidden = false;
+    }
+  });
 }

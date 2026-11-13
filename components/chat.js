@@ -51,8 +51,7 @@ export function renderChat(entityId, readingId, container) {
           <div class="selected-cards-display" id="selected-cards-display">
             <span class="no-cards-text">ยังไม่ได้เลือกไพ่</span>
           </div>
-          <button class="btn btn-secondary" id="pick-cards-btn" title="เลือกจากรายการ">🃏 เลือกไพ่</button>
-          <button class="btn btn-ghost" id="spread-cards-btn" title="สุ่มจากเดค">🎴 เปิดจากเดค</button>
+          <button class="mini-deck" id="spread-cards-btn" type="button" disabled title="สับไพ่ (ตั้งคำถามก่อน)" aria-label="สับไพ่"><span></span><span></span><span></span></button>
         </div>
         <div class="chat-input-actions">
           <span id="submit-error" style="font-size:0.78rem;color:#c0616b;display:none"></span>
@@ -130,20 +129,34 @@ export function renderChat(entityId, readingId, container) {
     questionInput.classList.remove('question-locked');
     questionInput.value = '';
     renderSelectedCards(cardsDisplay, [], abandonDraw);
+    syncDeck();
   }
 
-  container.querySelector('#pick-cards-btn').addEventListener('click', async () => {
-    if (selectedCards.length) { showToast('จั่วไพ่ไปแล้ว — กด ✕ ถ้าจะทิ้งชุดนี้'); return; }
-    if (!requireQuestion()) return;
-    const picked = await openCardPicker(settings.defaultSpread || '3card', []);
-    if (picked.length > 0) setDrawn(picked);
-  });
+  // The deck wakes up once there is a question
+  const deckBtn = container.querySelector('#spread-cards-btn');
+  function syncDeck() {
+    const ready = !!questionInput.value.trim() && !selectedCards.length;
+    deckBtn.disabled = !ready;
+    deckBtn.classList.toggle('awake', ready);
+  }
+  questionInput.addEventListener('input', syncDeck);
 
-  container.querySelector('#spread-cards-btn').addEventListener('click', async () => {
+  deckBtn.addEventListener('click', async () => {
     if (selectedCards.length) { showToast('จั่วไพ่ไปแล้ว — กด ✕ ถ้าจะทิ้งชุดนี้'); return; }
     if (!requireQuestion()) return;
-    const picked = await openCardSpread(settings.defaultSpread || '3card', [], questionInput.value.trim());
-    if (picked.length > 0) setDrawn(picked);
+    questionInput.readOnly = true;
+    const picked = await openCardSpread(settings.defaultSpread || '3card', [], questionInput.value.trim(), entity);
+    if (picked === 'manual') {
+      const manual = await openCardPicker(settings.defaultSpread || '3card', []);
+      if (manual.length > 0) setDrawn(manual);
+      else questionInput.readOnly = false;
+    } else if (picked.length > 0) {
+      setDrawn(picked);
+      submitReading();   // "ส่งถึงพี่" in the sheet sends right away
+    } else {
+      questionInput.readOnly = false;
+    }
+    syncDeck();
   });
 
   // Submit
@@ -186,6 +199,7 @@ export function renderChat(entityId, readingId, container) {
     questionInput.readOnly = false;
     questionInput.classList.remove('question-locked');
     renderSelectedCards(cardsDisplay, [], abandonDraw);
+    syncDeck();
 
     // Add separator + user bubble + skeleton entity bubble
     const readingEl = document.createElement('div');
