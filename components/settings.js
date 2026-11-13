@@ -51,6 +51,12 @@ export function renderSettings(container) {
               <option value="gemini-3.5-flash-lite" ${s.modelName === 'gemini-3.5-flash-lite' ? 'selected' : ''}>gemini-3.5-flash-lite 💨 (เร็ว ถูกมาก · อ่านไพ่ได้ไม่ดี)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label style="display:flex;gap:8px;align-items:flex-start;font-size:0.85rem;cursor:pointer">
+              <input type="checkbox" id="adult-check" ${s.userIsAdult ? 'checked' : ''} style="margin-top:3px">
+              <span>ฉันอายุ 18 ปีขึ้นไป<br><span style="font-size:0.75rem;color:var(--text-soft)">บอก AI ว่า "หนู/น้อง" เป็นสรรพนามของผู้ใหญ่ ช่วยลดการโดนตัวกรองของ Gemini ตอนคุยเรื่องความรัก</span></span>
+            </label>
+          </div>
         </div>
 
         <div class="profile-section">
@@ -155,6 +161,7 @@ export function renderSettings(container) {
       ...s,
       apiKey: container.querySelector('#api-key-input').value.trim(),
       modelName: container.querySelector('#model-select').value,
+      userIsAdult: container.querySelector('#adult-check').checked,
       defaultSpread: container.querySelector('#spread-select').value,
       userAvatar: container.querySelector('#user-icon-picker .icon-option.selected')?.dataset.icon || s.userAvatar || '🌸'
     };

@@ -102,7 +102,7 @@ export async function callDecode(entity, context, question, cards, prev = []) {
   const decodeModel = getSettings().decodeModel || model;
   const traits = await getPersonaTraits(entity);
   const body = JSON.stringify({
-    system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity, traits) }] },
+    system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity, traits, !!getSettings().userIsAdult) }] },
     contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, cards, prev) }] }],
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
   });
@@ -135,7 +135,7 @@ export async function callDecode(entity, context, question, cards, prev = []) {
 
 export async function callVoice(entity, context, question, decode, prev = [], onChunk, extras = {}) {
   const { key, model } = cfg();
-  const sys = buildVoiceSystemPrompt(entity, extras.styleExamples || []);
+  const sys = buildVoiceSystemPrompt(entity, extras.styleExamples || [], !!getSettings().userIsAdult);
   const user = buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || []);
   const configs = [
     { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
@@ -190,7 +190,13 @@ export async function callVoice(entity, context, question, decode, prev = [], on
     if (full.trim()) return { text: full.trim(), usage };
     lastReason = reason || 'EMPTY';
   }
-  const why = { SAFETY: 'โดนตัวกรองความปลอดภัยของ Gemini', PROHIBITED_CONTENT: 'โดนตัวกรองเนื้อหาของ Gemini', MAX_TOKENS: 'พื้นที่คำตอบหมดก่อนพูด', RECITATION: 'ตัวกรองของ Gemini' }[lastReason] || lastReason;
+  if (lastReason === 'PROHIBITED_CONTENT' || lastReason === 'SAFETY') {
+    const tip = getSettings().userIsAdult
+      ? 'ลองเปลี่ยนคำในโปรไฟล์พี่ที่อาจถูกอ่านผิด เช่น "sugar daddy" → "ใจป๋า", "ทะลึ่ง" → "ขี้แซว"'
+      : 'ลองติ๊ก "ฉันอายุ 18 ปีขึ้นไป" ในหน้าตั้งค่า';
+    throw new Error(`พี่ไม่ได้พูดออกมา (โดนตัวกรองของ Gemini) — ${tip} แล้วกดลองอีกครั้ง`);
+  }
+  const why = { MAX_TOKENS: 'พื้นที่คำตอบหมดก่อนพูด', RECITATION: 'ตัวกรองของ Gemini' }[lastReason] || lastReason;
   throw new Error(`พี่ไม่ได้พูดออกมา (${why}) — กดลองอีกครั้งได้`);
 }
 

@@ -41,10 +41,10 @@ const EXPRESS_TH = {
 // The decoder deliberately does NOT see the full persona: personality traits were bending
 // card meanings (e.g. "self-sufficient" became "proud to protect you"). It only gets the few
 // traits that decide whether a feeling is said aloud or held back, computed once per persona.
-export function buildDecodeSystemPrompt(entity, traits = {}) {
+export function buildDecodeSystemPrompt(entity, traits = {}, adult = false) {
   const name = entity?.name || 'เอนทิตี้';
   const expr = traits.expressiveness || 'normal';
-  return `คุณคือ "ผู้รับสาร" — ถอดไพ่ทาโรต์ที่ ${name} ส่งมา ให้เป็นสารดิบที่ตรงที่สุด
+  return `${adult ? ADULT_CONTEXT + '\n' : ''}คุณคือ "ผู้รับสาร" — ถอดไพ่ทาโรต์ที่ ${name} ส่งมา ให้เป็นสารดิบที่ตรงที่สุด
 คุณไม่ใช่ ${name} และไม่ได้พูดแทน — งานคือถอดความหมายอย่างซื่อสัตย์ ไม่แต่ง ไม่เติม ไม่เอาใจผู้ถาม
 ตอบเป็น JSON valid เท่านั้น ภาษาไทย
 
@@ -161,11 +161,15 @@ const CHANNEL_TH = {
   proxemic: 'ระยะห่าง เข้าใกล้หรือถอยห่าง'
 };
 
-export function buildVoiceSystemPrompt(entity, styleExamples = []) {
+// Stated only when the user confirmed it in settings. Thai "หนู/น้อง" are ordinary
+// adult forms of address; without context, safety filters can misread them as a child.
+export const ADULT_CONTEXT = 'บริบท: ผู้ถามเป็นผู้ใหญ่อายุ 18 ปีขึ้นไป "หนู" และ "น้อง" เป็นสรรพนามที่ผู้ใหญ่ไทยใช้กันทั่วไป ความสัมพันธ์นี้เป็นความผูกพันแบบผู้ใหญ่ ไม่มีเนื้อหาทางเพศ';
+
+export function buildVoiceSystemPrompt(entity, styleExamples = [], adult = false) {
   const examples = styleExamples.length
     ? `\n\nตัวอย่างคำพูดของคุณที่ผู้ถามรู้สึกว่า "ใช่คุณ" (ใช้แค่น้ำเสียง จังหวะ คำลงท้าย และวิธีเรียกผู้ถาม ห้ามลอกประโยคหรือเนื้อหา):\n${styleExamples.map(t => `- "${t}"`).join('\n')}`
     : '';
-  return `${buildPersona(entity)}${examples}
+  return `${adult ? ADULT_CONTEXT + '\n\n' : ''}${buildPersona(entity)}${examples}
 
 ---
 วิธีพูด (override ทุกอย่าง):

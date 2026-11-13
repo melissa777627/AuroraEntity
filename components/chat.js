@@ -295,7 +295,19 @@ export function renderChat(entityId, readingId, container) {
       } catch (err) {
         contentEl.classList.remove('streaming');
         contentEl.innerHTML = `<span style="color:#c0616b">❌ ${esc(err.message)}</span> <button class="btn btn-ghost btn-sm retry-btn" style="margin-left:8px">↩ ลองอีกครั้ง</button>`;
-        contentEl.querySelector('.retry-btn').addEventListener('click', attempt);
+        // Retry = remove this failed message and send it again from scratch
+        // (same question, same drawn cards — fresh decode and voice).
+        contentEl.querySelector('.retry-btn').addEventListener('click', () => {
+          readingEl.remove();
+          const i = readings.indexOf(reading);
+          if (i >= 0) readings.splice(i, 1);
+          deleteReading(reading.id);
+          container.querySelector('#context-input').value = reading.context || '';
+          questionInput.value = reading.question || '';
+          setContinue(!!reading.continued);
+          setDrawn(reading.cards || []);
+          submitReading();
+        });
         submitBtn.disabled = false;
         submitBtn.textContent = '🌸 ถาม';
       }
