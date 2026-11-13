@@ -16,8 +16,16 @@ export function saveEntity(entity) {
 export function deleteEntity(id) { update('entities', arr => (arr || []).filter(e => e.id !== id)); }
 export function getEntityById(id) { return getEntities().find(e => e.id === id) || null; }
 
+// Retired or replaced models move to the current default (benchmarked 2026-11-14).
+const DEFAULT_MODEL = 'gemini-3.8-flash';
+const RETIRED_MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite-preview'];
 export function getSettings() {
-  return get('settings') || { apiKey: '', modelName: 'gemini-3-flash-preview', theme: 'pink', defaultSpread: '3card' };
+  const s = get('settings') || { apiKey: '', modelName: DEFAULT_MODEL, theme: 'pink', defaultSpread: '3card' };
+  if (!s.modelName || RETIRED_MODELS.includes(s.modelName)) {
+    s.modelName = DEFAULT_MODEL;
+    try { set('settings', s); } catch {}
+  }
+  return s;
 }
 export function saveSettings(s) { set('settings', s); }
 

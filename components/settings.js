@@ -44,18 +44,11 @@ export function renderSettings(container) {
           <div class="form-group">
             <label class="form-label">Model</label>
             <select class="input" id="model-select">
-              <optgroup label="Gemini 3 (ใหม่ล่าสุด)">
-                <option value="gemini-3-flash-preview" ${s.modelName === 'gemini-3-flash-preview' ? 'selected' : ''}>gemini-3-flash ⚡ (แนะนำ)</option>
-                <option value="gemini-3.1-flash-lite-preview" ${s.modelName === 'gemini-3.1-flash-lite-preview' ? 'selected' : ''}>gemini-3.1-flash-lite 💨 (เร็ว ถูก)</option>
-                <option value="gemini-3.1-pro-preview" ${s.modelName === 'gemini-3.1-pro-preview' ? 'selected' : ''}>gemini-3.1-pro 🧠 (ฉลาดที่สุด)</option>
-              </optgroup>
-              <optgroup label="Gemini 2.5">
-                <option value="gemini-2.5-flash" ${s.modelName === 'gemini-2.5-flash' ? 'selected' : ''}>gemini-2.5-flash</option>
-                <option value="gemini-2.5-pro" ${s.modelName === 'gemini-2.5-pro' ? 'selected' : ''}>gemini-2.5-pro</option>
-              </optgroup>
-              <optgroup label="Gemini 2.0">
-                <option value="gemini-2.0-flash" ${s.modelName === 'gemini-2.0-flash' ? 'selected' : ''}>gemini-2.0-flash</option>
-              </optgroup>
+              <option value="gemini-3.8-flash" ${s.modelName === 'gemini-3.8-flash' ? 'selected' : ''}>gemini-3.8-flash ⚡ (แนะนำ · คุ้มสุด)</option>
+              <option value="gemini-4-argon" ${s.modelName === 'gemini-4-argon' ? 'selected' : ''}>gemini-4-argon 🎭 (สำนวนดีสุด · แพงกว่า ~2 เท่า)</option>
+              <option value="gemini-3.5-flash" ${s.modelName === 'gemini-3.5-flash' ? 'selected' : ''}>gemini-3.5-flash</option>
+              <option value="gemini-3.1-pro-preview" ${s.modelName === 'gemini-3.1-pro-preview' ? 'selected' : ''}>gemini-3.1-pro (ช้า)</option>
+              <option value="gemini-3.5-flash-lite" ${s.modelName === 'gemini-3.5-flash-lite' ? 'selected' : ''}>gemini-3.5-flash-lite 💨 (เร็ว ถูกมาก · อ่านไพ่ได้ไม่ดี)</option>
             </select>
           </div>
         </div>

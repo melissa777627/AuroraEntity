@@ -1,6 +1,6 @@
-import { getEntityById, getReadingsByEntity, saveReading, deleteReading, clearEntityReadings, saveFavorite, removeFavorite, isFavorited, getReadingById, getEntityVibe, saveEntityVibe } from '../src/storage.js';
+import { getFavorites, getEntityById, getReadingsByEntity, saveReading, deleteReading, clearEntityReadings, saveFavorite, removeFavorite, isFavorited, getReadingById, getEntityVibe, saveEntityVibe } from '../src/storage.js';
 import { callAnalysis, callEntityVibe, callDecode, callVoice } from '../src/api.js';
-import { enforceVoice } from '../src/reading-prompts.js';
+import { enforceVoice, styleExamplesFor, recentGesturesFor } from '../src/reading-prompts.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
@@ -263,10 +263,14 @@ export function renderChat(entityId, readingId, container) {
         if (decode.hesitation?.value) await new Promise(r => setTimeout(r, 1300));
 
         contentEl.textContent = '';
+        const voiceExtras = {
+          styleExamples: styleExamplesFor(entity.id, getFavorites()),
+          recentGestures: recentGesturesFor(readings.filter(r => r.id !== reading.id))
+        };
         const { text: rawText, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
           contentEl.innerHTML = formatVoice(enforceVoice(full, decode, entity) || full);
           chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
+        }, voiceExtras);
         const text = enforceVoice(rawText, decode, entity) || rawText;
         contentEl.innerHTML = formatVoice(text);
 
@@ -637,9 +641,13 @@ function bindRevoice(readingEl, reading, entity) {
         readingEl.querySelector('.followup-row')?.remove();
         bindFollowup(readingEl, reading, readingEl.closest('.chat-screen'));
       }
+      const voiceExtras = {
+        styleExamples: styleExamplesFor(entity.id, getFavorites().filter(f => f.reading_id !== reading.id)),
+        recentGestures: recentGesturesFor(getReadingsByEntity(reading.entity_id).filter(r => r.id !== reading.id))
+      };
       const { text: raw, usage } = await callVoice(entity, reading.context, reading.question, reading.decode, prev, (_, full) => {
         contentEl.innerHTML = formatVoice(enforceVoice(full, reading.decode, entity) || full);
-      });
+      }, voiceExtras);
       const text = enforceVoice(raw, reading.decode, entity) || raw;
       contentEl.innerHTML = formatVoice(text);
       const msg = reading.messages?.[0];

@@ -8,7 +8,7 @@ const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 function cfg() {
   const s = getSettings();
   if (!s.apiKey) throw new Error('ยังไม่ได้ตั้ง API Key — ไปที่ Settings ก่อนนะ');
-  return { key: s.apiKey, model: s.modelName || 'gemini-2.0-flash' };
+  return { key: s.apiKey, model: s.modelName || 'gemini-3.8-flash' };
 }
 
 export async function callEntityVoice(entity, context, question, cards, history = [], onChunk) {
@@ -133,10 +133,10 @@ export async function callDecode(entity, context, question, cards, prev = []) {
   throw lastErr;
 }
 
-export async function callVoice(entity, context, question, decode, prev = [], onChunk) {
+export async function callVoice(entity, context, question, decode, prev = [], onChunk, extras = {}) {
   const { key, model } = cfg();
-  const sys = buildVoiceSystemPrompt(entity);
-  const user = buildVoiceUserPrompt(context, question, decode, prev, entity);
+  const sys = buildVoiceSystemPrompt(entity, extras.styleExamples || []);
+  const user = buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || []);
   const configs = [
     { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
     // Retry without the thinking override and with more room — some models return nothing with budget 0

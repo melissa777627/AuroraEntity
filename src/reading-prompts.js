@@ -103,7 +103,9 @@ nonverbal.touch: true เมื่อไพ่ที่รองรับเป�
 
 อื่นๆ:
 - answer: สิ่งที่ตอบสนองต่อผู้ถามเป็นวลีสั้น เช่น "ไม่ได้โกรธ" "ยังไม่ไหว" "ดีใจด้วย" "ไม่ชัด"
-- tone: น้ำเสียง เช่น "ปกติ" "อ่อนลง" "แข็ง" "พึมพำ" "ตื่นเต้น" "ห้วน"
+- tone: น้ำเสียง เช่น "ปกติ" "อ่อนลง" "แข็ง" "พึมพำ" "ตื่นเต้น" "ห้วน" "ขี้เล่น/มีชั้นเชิง"
+  "ขี้เล่น/มีชั้นเชิง" ใช้ได้เมื่อมีไพ่ที่สื่อคารม ชั้นเชิง ไหวพริบ หรือความซน (เช่น The Magician, Page/Knight of Swords, Seven of Swords, The Fool, Page of Cups)
+  ไพ่เหล่านี้อาจหมายถึง "วิธีตอบ" (ตอบแบบมีลูกเล่น เลี่ยงอย่างมีชั้นเชิง) ไม่ใช่แค่เนื้อหา
 - hesitation: ลังเลก่อนตอบ เฉพาะเมื่อมีไพ่รองรับ
 - silent: true เมื่อไพ่บอกว่าเก็บงำ/ไม่อยากพูด และ ${name} พูดน้อยกับผู้ถาม (ถ้า silent ภาษากายห้ามเป็น none)
 - followup: ถ้ามีสารสำคัญที่ไม่ชัด เสนอคำถามสั้นๆ ที่ผู้ถามจะถามต่อ (เป็นคำพูดของผู้ถาม เป็นกลาง ไม่ชี้นำ) ไม่มีก็ null
@@ -159,8 +161,11 @@ const CHANNEL_TH = {
   proxemic: 'ระยะห่าง เข้าใกล้หรือถอยห่าง'
 };
 
-export function buildVoiceSystemPrompt(entity) {
-  return `${buildPersona(entity)}
+export function buildVoiceSystemPrompt(entity, styleExamples = []) {
+  const examples = styleExamples.length
+    ? `\n\nตัวอย่างคำพูดของคุณที่ผู้ถามรู้สึกว่า "ใช่คุณ" (ใช้แค่น้ำเสียง จังหวะ คำลงท้าย และวิธีเรียกผู้ถาม ห้ามลอกประโยคหรือเนื้อหา):\n${styleExamples.map(t => `- "${t}"`).join('\n')}`
+    : '';
+  return `${buildPersona(entity)}${examples}
 
 ---
 วิธีพูด (override ทุกอย่าง):
@@ -175,6 +180,10 @@ export function buildVoiceSystemPrompt(entity) {
 - ภาษากาย: ถ้าไม่ได้ให้มา ห้ามมีท่าทางเลย
   ถ้าให้มา → ท่าเล็กๆ 1 ท่า ไม่เกิน 4 คำ เขียนเป็นบรรทัดแยกในรูป *(…)* เช่น *(ถอนหายใจ)* *(ก้มหน้า)* *(เงียบไปแป๊บ)*
   ห้ามบรรยายฉาก ห้ามบรรยายความรู้สึก ห้ามใช้คำว่า "พี่…" ในวงเล็บ
+  ท่าทางใช้แค่ร่างกาย ห้ามสร้างสิ่งของ เสื้อผ้า หรือฉากขึ้นมาเอง (เช่น เนกไท ปกเสื้อ แก้ว โต๊ะ)
+- ห้ามอธิบายแบบเล่าเรื่องว่าตัวเองกำลังเก็บ ข่ม หรือคุมความรู้สึก (เช่น "พี่พยายามสะกดอารมณ์ไว้")
+  ถ้าสารบอกว่าเก็บไว้ ให้ "เก็บจริงๆ" คือพูดน้อยลง มีจังหวะหยุด
+  ยกเว้น: ถ้าน้ำเสียงเป็น "ขี้เล่น/มีชั้นเชิง" จะหยอกหรือแซวเรื่องนี้แบบคนคารมดีได้ (เช่น "…ก็ต้องคุมตัวเองไว้นี่ไง") หรือเลี่ยงตอบอย่างมีลูกเล่น
   ห้ามแตะตัวผู้ถาม (ลูบ กอด จับ หอม) เว้นแต่ระบุว่าอนุญาต
   ถ้าเป็นท่าที่แทนคำพูดได้ ตอบด้วยท่าอย่างเดียวได้
 - น้ำเสียงและความลังเล แสดงผ่านการเลือกคำและจังหวะ (เช่น "…") ห้ามเขียนบรรยายว่า "เสียงอ่อนลง"
@@ -182,7 +191,14 @@ export function buildVoiceSystemPrompt(entity) {
 - ห้ามพูดชื่อไพ่ ห้ามภาษากวี โลกสวย หรือ oracle-style
 - ภาษาพูด ไม่ใช่ภาษาเขียน: สารเป็นแค่โน้ต ห้ามลอกถ้อยคำของสาร ให้พูดความหมายเดียวกันด้วยคำของตัวเอง
   เหมือนพูดกับคนตรงหน้า ใช้คำสั้นๆ ตัดคำได้ มีคำลงท้ายตามบุคลิก ประโยคไม่ต้องครบไวยากรณ์
-  ห้ามใช้สำนวนภาษาเขียน เช่น "พยายาม…เพื่อ…" "ความรู้สึกเหล่านั้น/พวกนั้น" "อย่างหนัก" "ที่สุด" "ความจริงคือ" "ทั้งนี้" "อย่างไรก็ตาม"
+  ห้ามใช้สำนวนภาษาเขียน/ภาษารายงาน เช่น "พยายาม…เพื่อ…" "ความรู้สึกเหล่านั้น/พวกนั้น" "อย่างหนัก" "ที่สุด" "ความจริงคือ" "ทั้งนี้" "อย่างไรก็ตาม" "แบกรับ"
+  ใช้คำที่คนพูดกันในชีวิตประจำวัน เลี่ยงคำแบบวรรณกรรม เช่น "อิ่มเอมใจ" "ล้นพ้น" "หมดสภาพ" "ประเดประดัง" "สดใส" "เปี่ยม"
+  ยกเว้น: ถ้าตัวตนของคุณพูดภาษาโบราณ/ภาษาเก่า (เช่น ข้า เจ้า ขอรับ หาได้ไม่) ให้ใช้ภาษาแบบนั้นตามตัวตน คำวรรณกรรมแบบโบราณใช้ได้ — แต่ยังห้ามภาษารายงานอยู่ดี
+- ห้ามไล่ชื่ออารมณ์เรียงกัน (เช่น "มีความสุข สดใส อบอุ่นใจ อิ่มเอม") คนจริงไม่บอกชื่ออารมณ์ตัวเองหลายคำ
+  แสดงความรู้สึกผ่านคำอุทาน คำลงท้าย หรือสิ่งที่ทำแทน (เช่น "ดีจัง!" "เออ ดีแล้ว") / สารแบบแทรกให้เป็นนัยของประโยค ไม่ใช่คำเพิ่มอีกคำ
+- คำเรียกผู้ถามใช้ตามตัวตน คำเรียกพิเศษที่คิดขึ้นตามบุคลิก (เช่น คนดี) ใช้ได้เฉพาะเมื่อระบุว่า "เรียกแบบพิเศษได้" และไม่เกิน 1 ครั้ง / คำลงท้ายให้สม่ำเสมอ
+- ห้ามคำหยาบหรือสแลงแรง (เช่น โคตร วะ เป็นบ้า) เว้นแต่ตัวตนระบุว่าพูดแบบนั้น
+- "…" ใช้ไม่เกิน 2 ที่ต่อคำตอบ เฉพาะตอนหยุดจริง
   ตัวอย่างการแปลงสาร (ดูแค่วิธีแปลง ห้ามลอกคำ ใช้บุคลิกของตัวเอง):
     สาร: ข่มอารมณ์ไว้ / คิดถึงมาก
     ✗ ภาษาเขียน: "พี่พยายามสะกดอารมณ์ไว้อย่างหนัก แต่ความจริงคือพี่คิดถึงเธอมากที่สุด"
@@ -195,7 +211,7 @@ export function buildVoiceSystemPrompt(entity) {
   ขึ้นบรรทัดใหม่ได้เฉพาะตอนมีจังหวะหยุดจริง (ลังเล เงียบไป) และท่าทางอยู่บรรทัดของมันเอง`;
 }
 
-export function buildVoiceUserPrompt(context, question, decode, prev, entity = null) {
+export function buildVoiceUserPrompt(context, question, decode, prev, entity = null, recentGestures = []) {
   const d = decode || {};
   const line = m => {
     const tags = [];
@@ -236,6 +252,7 @@ ${msgLines.join('\n\n') || '(ไม่มี)'}
 ${nv}
 น้ำเสียง: ${d.tone || 'ปกติ'}${d.hesitation?.value ? ' / ลังเลก่อนตอบ' : ''}${d.silent ? '\nคุณเลือกที่จะเงียบ' : ''}
 
+${recentGestures.length && d.nonverbal?.channel && d.nonverbal.channel !== 'none' ? `ท่าที่คุณเพิ่งใช้: ${recentGestures.join(' / ')} — ลองท่าอื่นที่สื่อความหมายเดียวกัน (ซ้ำได้ถ้าไม่มีท่าอื่นที่ใช่)\n` : ''}คำเรียกผู้ถาม: ${d.warm ? 'เรียกแบบพิเศษตามบุคลิกได้ 1 ครั้ง (ไพ่มีความใกล้ชิด/ขี้เล่น) หรือเรียกตามปกติก็ได้' : 'เรียกตามตัวตนเท่านั้น ห้ามคิดคำเรียกใหม่'}
 ความยาวสูงสุด: ${d.silent ? 'ไม่พูด หรือแค่ "…"' : `${budget} ประโยคสั้น`} (ท่าทางไม่นับ) — เกินนี้ถือว่าผิด
 พูดเฉพาะสารข้างบน ห้ามเติมอะไรที่ไม่อยู่ในสาร ห้ามสัญญาหรือรับปากสิ่งที่สารไม่ได้บอก
 สรรพนามและคำลงท้าย: ใช้ตามตัวตนของคุณเท่านั้น${entity && bannedEndings(entity).length ? ` — ห้ามลงท้ายด้วย ${bannedEndings(entity).map(e => `"${e}"`).join(' ')} เด็ดขาด` : ''}`;
@@ -285,10 +302,15 @@ export function enforceVoice(text, d, entity = null) {
 }
 
 // Enforce what prompts can't guarantee: at most one short gesture, no touch unless allowed.
+function limitEllipses(text, max = 2) {
+  let n = 0;
+  return text.replace(/…|\.\.\./g, m => (++n <= max ? m : ''));
+}
+
 function enforceVoiceCore(text, d) {
   const allowNv = d?.nonverbal?.channel && d.nonverbal.channel !== 'none';
   let seen = 0;
-  return String(text || '')
+  return limitEllipses(String(text || ''))
     .replace(/\*\(([^*\n]*?)\)\*|^\s*\(([^)\n]*)\)\s*$/gm, (m, a, b) => {
       const act = (a ?? b ?? '').trim();
       if (!allowNv || seen > 0) return '';
@@ -354,6 +376,8 @@ export function validateDecode(raw, cards) {
       if (bodyUsed || nonverbal.channel === 'none') m.channel = holdsBack(m) ? 'tone' : 'clause'; else bodyUsed = true;
     }
   }
+  // What the entity stresses is holding back → no touching, whatever else the cards say
+  if (messages.some(m => m.core && holdsBack(m))) nonverbal.touch = false;
   if (messages.length && !messages.some(m => m.channel === 'sentence')) {
     (messages.find(m => m.channel === 'clause') || messages[0]).channel = 'sentence';
   }
@@ -388,6 +412,28 @@ export function validateDecode(raw, cards) {
     silent: !!d.silent && nonverbal.channel !== 'none',
     followup: typeof d.followup === 'string' && d.followup.trim() ? d.followup.trim() : null,
     summary: typeof d.summary === 'string' ? d.summary.trim() : '',
+    // Pet names only when the cards bring closeness or playfulness — not at random
+    warm: messages.some(m => m.cards.some(id => byId[id]?.approach === 'toward')) || /ขี้เล่น|ชั้นเชิง/.test(d.tone || ''),
     unused
   };
+}
+
+// Hearted answers of this entity → voice examples (style only). Newest first, short.
+export function styleExamplesFor(entityId, favorites, max = 3) {
+  return (favorites || [])
+    .filter(f => f.entity_id === entityId && f.content)
+    .slice(-max).reverse()
+    .map(f => f.content.replace(/\s+/g, ' ').trim().slice(0, 160));
+}
+
+// Gestures this entity used in its latest answers, so the voice can vary them.
+export function recentGesturesFor(readings, max = 3) {
+  const out = [];
+  for (const r of [...(readings || [])].reverse()) {
+    const text = r.messages?.find(m => m.role === 'assistant')?.content || '';
+    const g = text.match(/\*\(([^*\n]*?)\)\*/);
+    if (g) out.push(g[1]);
+    if (out.length >= max) break;
+  }
+  return out;
 }
