@@ -1,19 +1,46 @@
 let cardsData = null;
 let resolveCallback = null;
 let currentSpread = '3card';
-let selectedSlots = {};
-let activeSlot = null;
+let picked = [];          // manual picker: ordered card objects (may include jumper:true)
+let jumperNext = false;   // manual picker: next tapped card is a jumper
 
-const SPREADS = {
-  '1card':  [{ label: 'ไพ่' }],
-  '3card':  [{ label: 'อดีต' }, { label: 'ปัจจุบัน' }, { label: 'อนาคต' }],
-  'celtic': [
-    { label: 'ปัจจุบัน' }, { label: 'ความท้าทาย' }, { label: 'พื้นฐาน' },
-    { label: 'ผ่านมา' }, { label: 'มงกุฎ' }, { label: 'อนาคต' },
-    { label: 'ตัวเอง' }, { label: 'สิ่งแวดล้อม' }, { label: 'ความหวัง/กลัว' }, { label: 'ผลลัพธ์' }
-  ],
-  'custom': []
-};
+// Spreads have no positional meanings — every card simply answers the question.
+// Value = number of cards to draw (0 = unlimited / custom).
+const SPREAD_COUNT = { '1card': 1, '3card': 3, 'custom': 0 };
+const SPREAD_LABEL = { '1card': '1 ใบ', '3card': '3 ใบ', 'custom': 'Custom' };
+
+function normSpread(t) {
+  return Object.prototype.hasOwnProperty.call(SPREAD_COUNT, t) ? t : '3card'; // e.g. legacy 'celtic'
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// Copy a card for output: strip reversed/position data, optionally mark jumper.
+function cleanCard(c, jumper = false) {
+  const { reversed, orientation, position_label, jumper: _j, ...rest } = c;
+  const out = { ...rest, position_label: '' };
+  if (jumper) out.jumper = true;
+  return out;
+}
+
+// ── Unbiased crypto randomness ─────────────────────────────────
+const _u32 = new Uint32Array(1);
+function randU32() { crypto.getRandomValues(_u32); return _u32[0]; }
+function randBelow(n) {
+  const limit = Math.floor(0x100000000 / n) * n;
+  let x;
+  do { x = randU32(); } while (x >= limit);
+  return x % n;
+}
+function fisherYates(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = randBelow(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 async function loadCards() {
   if (cardsData) return cardsData;
@@ -22,13 +49,11 @@ async function loadCards() {
   return cardsData;
 }
 
+// ── Manual picker (physical deck entry) ────────────────────────
 export async function openCardPicker(defaultSpread = '3card', existingCards = []) {
-  currentSpread = defaultSpread;
-  selectedSlots = {};
-  activeSlot = null;
-
-  // Pre-fill existing
-  existingCards.forEach((c, i) => { if (c) selectedSlots[i] = c; });
+  currentSpread = normSpread(defaultSpread);
+  picked = (existingCards || []).filter(Boolean).map(c => cleanCard(c, !!c.jumper));
+  jumperNext = false;
 
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
@@ -40,8 +65,9 @@ export async function openCardPicker(defaultSpread = '3card', existingCards = []
       </div>
 
       <div class="spread-selector">
-        ${Object.entries({ '1card':'1 ใบ', '3card':'3 ใบ', 'celtic':'Celtic Cross', 'custom':'Custom' })
+        ${Object.entries(SPREAD_LABEL)
           .map(([k,v]) => `<button class="spread-btn${currentSpread===k?' active':''}" data-spread="${k}">${v}</button>`).join('')}
+        <button class="spread-btn jumper-next-btn" id="jumper-next-btn" title="ใบที่จะเลือกถัดไปคือไพ่ที่กระเด็นออกมาตอนสับ">✨ ไพ่กระเด็น</button>
       </div>
 
       <div id="spread-positions" class="spread-positions"></div>
@@ -70,16 +96,19 @@ export async function openCardPicker(defaultSpread = '3card', existingCards = []
   overlay.querySelector('#cancel-picker').addEventListener('click', cancelPicker);
   overlay.addEventListener('click', e => { if (e.target === overlay) cancelPicker(); });
 
-  overlay.querySelectorAll('.spread-btn').forEach(btn => {
+  overlay.querySelectorAll('.spread-btn[data-spread]').forEach(btn => {
     btn.addEventListener('click', () => {
-      overlay.querySelectorAll('.spread-btn').forEach(b => b.classList.remove('active'));
+      overlay.querySelectorAll('.spread-btn[data-spread]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentSpread = btn.dataset.spread;
-      selectedSlots = {};
-      activeSlot = null;
-      renderPositions();
-      renderCount();
+      picked = [];
+      rerenderPicker();
     });
+  });
+
+  overlay.querySelector('#jumper-next-btn').addEventListener('click', () => {
+    jumperNext = !jumperNext;
+    renderJumperBtn();
   });
 
   let currentFilter = 'ทั้งหมด';
@@ -97,22 +126,20 @@ export async function openCardPicker(defaultSpread = '3card', existingCards = []
   });
 
   overlay.querySelector('#clear-picker').addEventListener('click', () => {
-    selectedSlots = {};
-    activeSlot = null;
-    renderPositions();
-    renderCards(currentFilter, overlay.querySelector('#card-search-input').value);
-    renderCount();
+    picked = [];
+    jumperNext = false;
+    rerenderPicker();
   });
 
   overlay.querySelector('#confirm-picker').addEventListener('click', () => {
-    const positions = currentSpread === 'custom' ? Object.keys(selectedSlots).map(Number) : SPREADS[currentSpread].map((_, i) => i);
-    const result = positions.map(i => selectedSlots[i] || null).filter(Boolean);
+    const result = picked.map(c => cleanCard(c, !!c.jumper));
     const cb = resolveCallback;
     cleanup();
     cb?.(result);
   });
 
   renderPositions();
+  renderJumperBtn();
   await loadCards();
   renderCards('ทั้งหมด', '');
   renderCount();
@@ -120,30 +147,61 @@ export async function openCardPicker(defaultSpread = '3card', existingCards = []
   return new Promise(resolve => { resolveCallback = resolve; });
 }
 
+function mainCount() { return picked.filter(c => !c.jumper).length; }
+
+function rerenderPicker() {
+  const overlay = document.getElementById('modal-overlay');
+  if (!overlay) return;
+  renderPositions();
+  renderJumperBtn();
+  renderCards(overlay.querySelector('.filter-chip.active')?.dataset.filter || 'ทั้งหมด', overlay.querySelector('#card-search-input')?.value || '');
+  renderCount();
+}
+
+function renderJumperBtn() {
+  const btn = document.getElementById('modal-overlay')?.querySelector('#jumper-next-btn');
+  if (btn) btn.classList.toggle('active', jumperNext);
+}
+
 function renderPositions() {
   const overlay = document.getElementById('modal-overlay');
   if (!overlay) return;
   const container = overlay.querySelector('#spread-positions');
-  const slots = currentSpread === 'custom' ? [] : SPREADS[currentSpread];
+  if (!container) return;
+  const needed = SPREAD_COUNT[currentSpread];
 
-  if (slots.length === 0 && currentSpread === 'custom') {
-    container.innerHTML = `<div style="font-size:0.8rem;color:var(--text-soft)">กดไพ่ในตาราง เพื่อเพิ่ม — ไม่จำกัดจำนวน</div>`;
-    return;
-  }
+  const chips = picked.map((c, i) => `
+    <div class="position-slot filled${c.jumper ? ' jumper' : ''}" data-idx="${i}">
+      ${c.jumper ? '<span class="position-label">✨ ไพ่กระเด็น</span>' : ''}
+      <span class="position-card">${esc(c.name || '')}</span>
+      <span class="slot-actions">
+        <button class="slot-btn slot-jumper" data-idx="${i}" title="ทำเครื่องหมายว่าเป็นไพ่กระเด็น">✨</button>
+        <button class="slot-btn slot-remove" data-idx="${i}" title="เอาออก">×</button>
+      </span>
+    </div>`);
 
-  container.innerHTML = slots.map((pos, i) => {
-    const filled = selectedSlots[i];
-    return `<div class="position-slot${filled ? ' filled' : ''}${activeSlot === i ? ' active' : ''}" data-slot="${i}">
-      <span class="position-label">${pos.label}</span>
-      <span class="position-card">${filled ? (filled.name || '') : '—'}</span>
-      ${filled?.reversed ? '<span style="font-size:0.65rem;color:var(--text-soft)">[กลับหัว]</span>' : ''}
-    </div>`;
-  }).join('');
+  const empties = needed ? Math.max(0, needed - mainCount()) : 0;
+  for (let i = 0; i < empties; i++) chips.push(`<div class="position-slot"><span class="position-card">—</span></div>`);
 
-  container.querySelectorAll('.position-slot').forEach(slot => {
-    slot.addEventListener('click', () => {
-      activeSlot = activeSlot === parseInt(slot.dataset.slot) ? null : parseInt(slot.dataset.slot);
-      renderPositions();
+  container.innerHTML = chips.join('') ||
+    `<div style="font-size:0.8rem;color:var(--text-soft)">กดไพ่ในตาราง เพื่อเพิ่ม — ไม่จำกัดจำนวน</div>`;
+
+  container.querySelectorAll('.slot-jumper').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const c = picked[+btn.dataset.idx];
+      if (!c) return;
+      // Un-marking a jumper turns it into a main card — only if there's room
+      if (c.jumper && needed && mainCount() >= needed) return;
+      picked[+btn.dataset.idx] = { ...c, jumper: !c.jumper };
+      rerenderPicker();
+    });
+  });
+  container.querySelectorAll('.slot-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      picked.splice(+btn.dataset.idx, 1);
+      rerenderPicker();
     });
   });
 }
@@ -170,74 +228,47 @@ function renderCards(filter, search) {
     );
   }
 
-  const usedIds = Object.values(selectedSlots).map(c => c?.id).filter(Boolean);
+  const usedIds = picked.map(c => c.id);
 
   grid.innerHTML = cards.map(card => `
     <div class="card-item${usedIds.includes(card.id) ? ' selected' : ''}" data-id="${card.id}">
       <div class="card-item-name">${card.name}</div>
       <div class="card-item-nameTH">${card.nameTH || ''}</div>
       <span class="card-item-element">${card.element || ''}</span>
-      <label class="reversed-toggle" onclick="event.stopPropagation()">
-        <input type="checkbox" ${selectedSlots && Object.values(selectedSlots).find(c => c?.id === card.id)?.reversed ? 'checked' : ''}
-          data-card-id="${card.id}">
-        กลับหัว
-      </label>
     </div>
   `).join('') || `<div class="analysis-loading" style="grid-column:1/-1">ไม่พบไพ่ที่ตรงกัน</div>`;
 
   grid.querySelectorAll('.card-item').forEach(el => {
-    el.addEventListener('click', () => toggleCard(card => card.id === el.dataset.id, cards, el.dataset.id));
-  });
-
-  grid.querySelectorAll('input[data-card-id]').forEach(chk => {
-    chk.addEventListener('change', () => {
-      const id = chk.dataset.cardId;
-      Object.keys(selectedSlots).forEach(k => {
-        if (selectedSlots[k]?.id === id) selectedSlots[k] = { ...selectedSlots[k], reversed: chk.checked };
-      });
-      renderPositions();
-    });
+    el.addEventListener('click', () => toggleCard(cards, el.dataset.id));
   });
 }
 
-function toggleCard(finder, cards, cardId) {
-  const overlay = document.getElementById('modal-overlay');
+function toggleCard(cards, cardId) {
   const card = cards.find(c => c.id === cardId);
   if (!card) return;
 
-  // Remove if already selected
-  const existingSlot = Object.keys(selectedSlots).find(k => selectedSlots[k]?.id === cardId);
-  if (existingSlot !== undefined) {
-    delete selectedSlots[existingSlot];
-    renderPositions();
-    renderCards(overlay.querySelector('.filter-chip.active')?.dataset.filter || 'ทั้งหมด', overlay.querySelector('#card-search-input')?.value || '');
-    renderCount();
-    return;
-  }
-
-  if (currentSpread === 'custom') {
-    const nextIdx = Math.max(-1, ...Object.keys(selectedSlots).map(Number)) + 1;
-    selectedSlots[nextIdx] = { ...card, reversed: false, position_label: `ไพ่ ${nextIdx + 1}` };
+  const existing = picked.findIndex(c => c.id === cardId);
+  if (existing !== -1) {
+    picked.splice(existing, 1);
+  } else if (jumperNext) {
+    picked.push(cleanCard(card, true));
+    jumperNext = false;
   } else {
-    const slots = SPREADS[currentSpread];
-    const target = activeSlot !== null ? activeSlot : slots.findIndex((_, i) => !selectedSlots[i]);
-    if (target === -1) return; // all slots full
-    selectedSlots[target] = { ...card, reversed: false, position_label: slots[target]?.label || '' };
-    activeSlot = slots.findIndex((_, i) => !selectedSlots[i]);
-    if (activeSlot === -1) activeSlot = null;
+    const needed = SPREAD_COUNT[currentSpread];
+    if (needed && mainCount() >= needed) return; // all slots full
+    picked.push(cleanCard(card));
   }
-
-  renderPositions();
-  renderCards(overlay.querySelector('.filter-chip.active')?.dataset.filter || 'ทั้งหมด', overlay.querySelector('#card-search-input')?.value || '');
-  renderCount();
+  rerenderPicker();
 }
 
 function renderCount() {
   const overlay = document.getElementById('modal-overlay');
   const el = overlay?.querySelector('#selection-count');
   if (!el) return;
-  const count = Object.keys(selectedSlots).length;
-  el.textContent = count ? `เลือกแล้ว ${count} ใบ` : '';
+  const jumpers = picked.length - mainCount();
+  el.textContent = picked.length
+    ? `เลือกแล้ว ${mainCount()} ใบ${jumpers ? ` + ไพ่กระเด็น ${jumpers}` : ''}`
+    : '';
 }
 
 function cancelPicker() {
@@ -252,62 +283,164 @@ function cleanup() {
   resolveCallback = null;
 }
 
-// ── Face-down card spread ──────────────────────────────────────
+// ── Face-down card spread (hold-to-shuffle) ────────────────────
 const EL_EMOJI = { 'ไฟ': '🔥', 'น้ำ': '🌊', 'อากาศ': '💨', 'ดิน': '🌿' };
 const EL_COLOR = { 'ไฟ': '#ff9050', 'น้ำ': '#5bc8ef', 'อากาศ': '#b39ddb', 'ดิน': '#66bb6a' };
 
-export async function openCardSpread(spreadType = '3card', existingCards = []) {
+// One question, one draw: released deck + jumper + flipped cards are kept per question text.
+const spreadStates = new Map();
+
+// Jumper chance ≈ 1 in 8, decided only from the state captured at the release instant.
+const JUMPER_ONE_IN = 8;
+
+export async function openCardSpread(spreadType = '3card', existingCards = [], question = '') {
   const data = await loadCards();
-  const pool = [...(data.tarot || [])].sort(() => Math.random() - 0.5);
-  const slots = SPREADS[spreadType] || SPREADS['3card'];
-  const needed = spreadType === 'custom' ? 0 : slots.length;
+  const qKey = String(question || '').trim();
 
-  let flipped = {}; // id → true
-  let selected = []; // ordered array of card objects
-
-  // pre-fill existing
-  existingCards.forEach(c => { if (c) { flipped[c.id] = true; selected.push(c); } });
+  let state = qKey ? spreadStates.get(qKey) : null;
+  if (!state) {
+    const pre = (existingCards || []).filter(Boolean);
+    const preMain = pre.filter(c => !c.jumper).map(c => cleanCard(c));
+    const preJumper = pre.find(c => c.jumper);
+    const usedIds = new Set(pre.map(c => c.id));
+    state = {
+      needed: SPREAD_COUNT[normSpread(spreadType)],
+      deck: (data.tarot || []).filter(c => !usedIds.has(c.id)), // order fixed only on release
+      released: false,
+      jumper: preJumper ? cleanCard(preJumper, true) : null,
+      selected: preMain
+    };
+    if (qKey) spreadStates.set(qKey, state);
+  }
+  const needed = state.needed;
 
   const overlay = document.getElementById('modal-overlay');
   overlay.classList.remove('hidden');
 
+  // Hold-to-shuffle runtime (not persisted)
+  let holding = false;
+  let rafId = 0;
+  let passes = 0;
+  let entropy = 0;   // 32-bit pool, updated every frame (crypto ⊕ timing)
+
+  function shufflePass() {
+    fisherYates(state.deck);
+    const t = performance.now();
+    const timing = (Math.floor(t * 1000) ^ Math.floor((t % 1) * 0x7fffffff)) >>> 0;
+    // Rotating a uniformly shuffled deck by a timing-derived offset keeps it uniform
+    const rot = timing % state.deck.length;
+    if (rot) state.deck = state.deck.slice(rot).concat(state.deck.slice(0, rot));
+    entropy = (randU32() ^ timing ^ Math.imul(entropy, 0x9e3779b1)) >>> 0;
+    passes++;
+  }
+
+  function frame() {
+    if (!holding) return;
+    shufflePass();
+    const counter = overlay.querySelector('#shuffle-count');
+    if (counter) counter.textContent = `สับแล้ว ${passes} รอบ`;
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function startHold(e) {
+    if (state.released || holding) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+    holding = true;
+    shufflePass(); // at least one pass even on a quick tap
+    overlay.querySelector('.card-spread-modal')?.classList.add('shuffling');
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function release() {
+    if (!holding) return;
+    holding = false;
+    cancelAnimationFrame(rafId);
+    // Final state = exactly what the deck looked like at release. Jumper is derived from it.
+    let h = entropy;
+    for (let i = 0; i < Math.min(8, state.deck.length); i++) {
+      for (const ch of state.deck[i].id) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+    }
+    h = (h ^ (h >>> 16)) >>> 0;
+    if (!state.jumper && state.deck.length > needed && (h % JUMPER_ONE_IN) === 0) {
+      state.jumper = cleanCard(state.deck[0], true); // top card flies out
+      state.deck = state.deck.slice(1);
+    }
+    state.released = true;
+    state.justJumped = !!state.jumper;
+    render();
+  }
+
+  function close(result) {
+    holding = false;
+    cancelAnimationFrame(rafId);
+    const cb = resolveCallback;
+    cleanup();
+    cb?.(result);
+  }
+
+  function chip(c, label) {
+    const color = EL_COLOR[c.element] || '#b39ddb';
+    return `<div class="spread-sel-chip${c.jumper ? ' jumper' : ''}" data-id="${c.id}" style="--chip-color:${color}">
+      <span>${EL_EMOJI[c.element] || '✨'}</span>
+      <div>
+        ${label ? `<div class="spread-sel-label">${label}</div>` : ''}
+        <div class="spread-sel-name">${esc(c.nameTH || c.name)}</div>
+      </div>
+      <span class="spread-sel-lock" title="ล็อกแล้ว">🔒</span>
+    </div>`;
+  }
+
   function render() {
-    const selIds = selected.map(c => c.id);
+    const selIds = new Set(state.selected.map(c => c.id));
+    const done = needed && state.selected.length >= needed;
+    const canConfirm = needed ? state.selected.length >= needed : state.selected.length > 0;
+
+    let hint;
+    if (!state.released && !done) hint = 'กดค้างเพื่อสับ · ปล่อยเมื่อรู้สึกว่าพอ';
+    else if (!done) hint = `แตะไพ่ที่คว่ำหน้าเพื่อเปิด${needed ? ` (ต้องการ ${needed} ใบ)` : ''} · เปิดแล้วเปลี่ยนไม่ได้`;
+    else hint = 'ครบแล้ว 🔒';
+
     overlay.innerHTML = `
-      <div class="modal modal-lg card-spread-modal">
+      <div class="modal modal-lg card-spread-modal${state.released ? ' released' : ''}">
         <div class="modal-header">
           <span class="modal-title">✨ เลือกไพ่จากเดค</span>
           <button class="btn-icon" id="spread-close">✕</button>
         </div>
 
+        ${qKey ? `<div class="spread-question">🔒 <span>${esc(qKey)}</span></div>` : ''}
+
+        ${state.jumper ? `
+          <div class="spread-jumper${state.justJumped ? ' just-jumped' : ''}">
+            <div class="spread-jumper-title">✨ มีไพ่กระเด็นออกมา</div>
+            ${chip(state.jumper, 'ไพ่กระเด็น')}
+          </div>` : ''}
+
         <div class="spread-selected-row" id="spread-selected-row">
-          ${selected.length === 0
-            ? `<span class="spread-hint">แตะไพ่ที่คว่ำหน้าเพื่อเปิด${needed ? ` (ต้องการ ${needed} ใบ)` : ''}</span>`
-            : selected.map((c, i) => {
-                const label = slots[i]?.label || `ใบที่ ${i+1}`;
-                const color = EL_COLOR[c.element] || '#b39ddb';
-                return `<div class="spread-sel-chip" data-id="${c.id}" style="--chip-color:${color}">
-                  <span>${EL_EMOJI[c.element] || '✨'}</span>
-                  <div>
-                    <div class="spread-sel-label">${label}</div>
-                    <div class="spread-sel-name">${c.nameTH || c.name}</div>
-                  </div>
-                  <button class="spread-sel-remove" data-id="${c.id}">×</button>
-                </div>`;
-              }).join('')}
+          ${state.selected.length === 0
+            ? `<span class="spread-hint">${hint}</span>`
+            : state.selected.map(c => chip(c, '')).join('') + `<span class="spread-hint">${done ? 'ครบแล้ว 🔒' : ''}</span>`}
         </div>
 
-        <div class="card-spread-grid" id="card-spread-grid">
-          ${pool.map(card => {
-            const isFlipped = !!flipped[card.id];
-            const isSel = selIds.includes(card.id);
+        ${!state.released && !done ? `
+          <div class="shuffle-zone">
+            <button class="shuffle-btn" id="shuffle-btn" type="button">
+              <span class="shuffle-deck"><span></span><span></span><span></span></span>
+              <span class="shuffle-btn-text">กดค้างเพื่อสับ · ปล่อยเมื่อรู้สึกว่าพอ</span>
+              <span class="shuffle-count" id="shuffle-count"></span>
+            </button>
+          </div>` : ''}
+
+        <div class="card-spread-grid${state.released ? '' : ' locked'}" id="card-spread-grid">
+          ${state.deck.map(card => {
+            const isFlipped = selIds.has(card.id);
             const color = EL_COLOR[card.element] || '#b39ddb';
-            return `<div class="spread-card${isFlipped ? ' flipped' : ''}${isSel ? ' selected' : ''}" data-id="${card.id}">
+            return `<div class="spread-card${isFlipped ? ' flipped selected' : ''}" data-id="${card.id}">
               <div class="spread-card-inner">
                 <div class="spread-card-back"></div>
                 <div class="spread-card-front" style="--card-color:${color}">
                   <div class="spread-front-el">${EL_EMOJI[card.element] || '✨'}</div>
-                  <div class="spread-front-name">${card.nameTH || card.name}</div>
+                  <div class="spread-front-name">${isFlipped ? esc(card.nameTH || card.name) : ''}</div>
                 </div>
               </div>
             </div>`;
@@ -316,47 +449,52 @@ export async function openCardSpread(spreadType = '3card', existingCards = []) {
 
         <div class="modal-footer">
           <span style="font-size:0.82rem;color:var(--text-soft);margin-right:auto">
-            ${needed ? `${selected.length}/${needed} ใบ` : `${selected.length} ใบ`}
+            ${needed ? `${state.selected.length}/${needed} ใบ` : `${state.selected.length} ใบ`}${state.jumper ? ' + ✨1' : ''}
           </span>
           <button class="btn btn-ghost" id="spread-cancel">ยกเลิก</button>
-          <button class="btn btn-primary" id="spread-confirm" ${needed && selected.length < needed ? 'disabled' : ''}>✅ ยืนยัน</button>
+          <button class="btn btn-primary" id="spread-confirm" ${canConfirm ? '' : 'disabled'}>✅ ยืนยัน</button>
         </div>
       </div>`;
+    state.justJumped = false;
 
-    overlay.querySelector('#spread-close').addEventListener('click', () => { cleanup(); resolveCallback?.([]); });
-    overlay.querySelector('#spread-cancel').addEventListener('click', () => { cleanup(); resolveCallback?.([]); });
+    overlay.querySelector('#spread-close').addEventListener('click', () => close([]));
+    overlay.querySelector('#spread-cancel').addEventListener('click', () => close([]));
 
     overlay.querySelector('#spread-confirm').addEventListener('click', () => {
-      const result = selected.map((c, i) => ({ ...c, position_label: slots[i]?.label || `ใบที่ ${i+1}` }));
-      const cb = resolveCallback;
-      cleanup();
-      cb?.(result);
+      const result = [
+        ...(state.jumper ? [cleanCard(state.jumper, true)] : []),
+        ...state.selected.map(c => cleanCard(c))
+      ];
+      close(result);
     });
 
-    overlay.querySelectorAll('.spread-sel-remove').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        selected = selected.filter(c => c.id !== id);
-        delete flipped[id];
-        render();
-      });
-    });
+    const btn = overlay.querySelector('#shuffle-btn');
+    if (btn) {
+      btn.addEventListener('pointerdown', startHold);
+      btn.addEventListener('pointerup', release);
+      btn.addEventListener('pointercancel', release);
+      btn.addEventListener('lostpointercapture', release);
+      btn.addEventListener('contextmenu', e => e.preventDefault());
+      // Fallback for browsers without pointer events
+      if (!window.PointerEvent) {
+        btn.addEventListener('touchstart', startHold, { passive: false });
+        btn.addEventListener('touchend', release);
+        btn.addEventListener('touchcancel', release);
+        btn.addEventListener('mousedown', startHold);
+        btn.addEventListener('mouseup', release);
+        btn.addEventListener('mouseleave', release);
+      }
+    }
 
     overlay.querySelectorAll('.spread-card').forEach(el => {
       el.addEventListener('click', () => {
+        if (!state.released) return;                       // must shuffle first
         const id = el.dataset.id;
-        const card = pool.find(c => c.id === id);
+        if (state.selected.some(c => c.id === id)) return;  // flipped cards are locked
+        if (needed && state.selected.length >= needed) return;
+        const card = state.deck.find(c => c.id === id);
         if (!card) return;
-        const isSel = selected.some(c => c.id === id);
-        if (isSel) {
-          selected = selected.filter(c => c.id !== id);
-          delete flipped[id];
-        } else {
-          if (needed && selected.length >= needed) return;
-          flipped[id] = true;
-          selected.push({ ...card, reversed: false });
-        }
+        state.selected.push(cleanCard(card));
         render();
       });
     });
