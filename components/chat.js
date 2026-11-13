@@ -314,7 +314,7 @@ function appendReading(chatMessages, reading, entity) {
         <div class="entity-icon-badge">${entity.icon || '🌙'}</div>
         <span class="bubble-entity-name">${esc(entity.name)}</span>
       </div>
-      <div class="bubble-content">${formatVoice(voice.content)}</div>
+      <div class="bubble-content">${formatVoice(reading.decode ? (enforceVoice(voice.content, reading.decode) || voice.content) : voice.content)}</div>
       <div class="bubble-actions" id="actions-${reading.id}">
         ${buildBubbleActions(msgId, reading, entity, voice.content, voice.tokens)}
       </div>
@@ -630,7 +630,7 @@ function bindRevoice(readingEl, reading, entity) {
 function bindFollowup(readingEl, reading, screen) {
   const q = reading.decode?.followup;
   const actions = readingEl.querySelector('.bubble-actions');
-  if (!q || !actions || actions.querySelector('.followup-chip')) return;
+  if (!q || !actions || readingEl.querySelector('.followup-row')) return;
   const btn = document.createElement('button');
   btn.className = 'followup-chip';
   btn.textContent = `💬 ${q}`;
@@ -642,7 +642,11 @@ function bindFollowup(readingEl, reading, screen) {
     screen.querySelector('#chat-input-area')?.classList.remove('collapsed');
     input.focus();
   });
-  actions.prepend(btn);
+  const row = document.createElement('div');
+  row.className = 'followup-row';
+  row.innerHTML = '<span class="followup-label">ถามต่อได้</span>';
+  row.appendChild(btn);
+  actions.after(row);
 }
 
 function injectReadingStyle() {
@@ -660,7 +664,9 @@ function injectReadingStyle() {
     .question-locked { opacity:0.75; }
     .card-chip.jumper, .selected-card-chip.jumper { box-shadow:0 0 0 1.5px var(--accent); }
     .abandon-draw { font-size:0.8rem; opacity:0.6; }
-    .followup-chip { font-size:0.75rem; padding:3px 10px; border-radius:12px; border:1px dashed var(--accent); background:transparent; color:var(--text); cursor:pointer; max-width:100%; text-align:left; }
+    .followup-row { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin-top:8px; }
+    .followup-label { font-size:0.7rem; color:var(--text-soft); }
+    .followup-chip { font:inherit; font-size:0.85rem; line-height:1.5; padding:6px 12px; border-radius:14px; border:1px dashed var(--accent-deep); background:var(--bg-primary); color:var(--text-primary); cursor:pointer; width:100%; text-align:left; }
     .dp-toggle { width:100%; text-align:left; font:inherit; font-size:0.85rem; color:var(--text-soft); background:none; border:none; padding:6px 2px; cursor:pointer; }
     .dp-body { display:flex; flex-direction:column; gap:14px; padding:4px 2px 6px; font-size:0.86rem; line-height:1.6; }
     .dp-group { display:flex; flex-direction:column; gap:8px; }

@@ -98,9 +98,9 @@ export async function callVoice(entity, context, question, decode, prev = [], on
   const sys = buildVoiceSystemPrompt(entity);
   const user = buildVoiceUserPrompt(context, question, decode, prev);
   const configs = [
-    { temperature: 0.6, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
+    { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
     // Retry without the thinking override and with more room — some models return nothing with budget 0
-    { temperature: 0.7, maxOutputTokens: 2048 }
+    { temperature: 0.8, maxOutputTokens: 2048 }
   ];
 
   let lastReason = '';
