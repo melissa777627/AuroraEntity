@@ -1,5 +1,6 @@
 import { getEntityById, getReadingsByEntity, saveReading, deleteReading, clearEntityReadings, saveFavorite, removeFavorite, isFavorited, getReadingById, getEntityVibe, saveEntityVibe } from '../src/storage.js';
 import { callAnalysis, callEntityVibe, callDecode, callVoice } from '../src/api.js';
+import { enforceVoice } from '../src/reading-prompts.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
@@ -234,10 +235,11 @@ export function renderChat(entityId, readingId, container) {
         if (decode.hesitation?.value) await new Promise(r => setTimeout(r, 1300));
 
         contentEl.textContent = '';
-        const { text, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
-          contentEl.innerHTML = formatVoice(full);
+        const { text: rawText, usage } = await callVoice(entity, context, question, decode, prev, (_, full) => {
+          contentEl.innerHTML = formatVoice(enforceVoice(full, decode));
           chatMessages.scrollTop = chatMessages.scrollHeight;
         });
+        const text = enforceVoice(rawText, decode);
         contentEl.innerHTML = formatVoice(text);
 
         contentEl.classList.remove('streaming');

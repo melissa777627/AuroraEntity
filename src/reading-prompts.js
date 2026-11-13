@@ -74,6 +74,9 @@ ${persona}
 - hesitation: ลังเลก่อนตอบ เฉพาะเมื่อมีไพ่รองรับ
 - silent: true เมื่อไพ่บอกว่าเก็บงำ/ไม่อยากพูด และบุคลิกเข้ากัน (ถ้า silent ภาษากายห้ามเป็น none)
 - answer: คำตอบตรงคำถามเป็นวลีสั้น เช่น "ไม่ได้โกรธ" "ใช่" "ไม่ชัด"
+  ถ้าผู้ถามแค่เรียกชื่อ/ทักทาย (ไม่ได้ถามอะไร) → answer คือการขานรับ และสารคือสิ่งที่ไพ่บอกว่าตอนนี้เป็นยังไง แบบสั้นที่สุด
+- expressiveness: บุคลิกนี้ปกติพูดมากแค่ไหน "reserved" (ขรึม พูดน้อย) | "normal" | "expressive" (ช่างพูด แสดงออก) — ดูจากข้อมูลตัวตนเท่านั้น
+- nonverbal.touch: true เฉพาะเมื่อมีไพ่ความใกล้ชิด/เข้าหา และอารมณ์แรงมาก — ไม่งั้น false (ห้ามแตะตัวผู้ถาม)
 - followup: ถ้ามีสารสำคัญที่ไม่ชัด เสนอคำถามสั้นๆ ที่ผู้ถามจะถามต่อเพื่อให้ชัด (เป็นคำพูดของผู้ถาม ใช้สรรพนามแบบที่ผู้ถามใช้) ไม่มีก็ null
   คำถามแนะนำต้องเป็นกลาง ห้ามชี้นำคำตอบ
 
@@ -84,8 +87,9 @@ ${persona}
   "answer": "",
   "messages": [{ "text": "สารสั้นๆ", "cards": ["id"], "weight": 1, "core": false, "about": "entity|user|unclear", "clarity": "clear|unclear", "alt": null, "safe": null, "directive": false }],
   "intensity": 1,
-  "nonverbal": { "channel": "none", "meaning": "", "cards": [] },
+  "nonverbal": { "channel": "none", "meaning": "", "cards": [], "touch": false },
   "tone": "ปกติ",
+  "expressiveness": "normal",
   "hesitation": { "value": false, "cards": [] },
   "silent": false,
   "followup": null
@@ -121,12 +125,12 @@ export function buildVoiceSystemPrompt(entity) {
 - ถ้าข้อสันนิษฐานในคำถามไม่จริง ต้องแก้ ห้ามตอบตามน้ำ
 - สารที่ "ไม่ชัด" พูดได้แค่ส่วนที่ระบุว่าพูดได้ ถ้าไม่มี ห้ามพูดถึง
 - ห้ามสั่งหรือแนะนำให้ผู้ถามทำอะไร ถ้าสารไม่ได้ระบุว่าเป็นคำสั่ง
-- ความยาว: จำนวนเรื่องที่พูด = จำนวนสาร
-  สารที่ถูกย้ำ/อารมณ์แรง → ถ้าบุคลิกช่างพูด ย้ำซ้ำได้ ยาวขึ้นได้ / ถ้าบุคลิกขรึม คำน้อยแต่หนักแน่น
-  การย้ำคือย้ำอารมณ์เดิมเท่านั้น ห้ามเติมเรื่อง
+- ความยาว: ทำตาม "ความยาวสูงสุด" ที่ระบุมาเคร่งครัด หนึ่งสาร = หนึ่งประโยคสั้น ห้ามขยายสารเป็นย่อหน้า
+  การย้ำคือย้ำอารมณ์เดิมเท่านั้น ห้ามเติมเรื่อง ห้ามอธิบายเหตุผล ห้ามบรรยายความรู้สึกตัวเองยืดยาว
 - ภาษากาย: ถ้าไม่ได้ให้มา ห้ามมีท่าทางเลย
-  ถ้าให้มา → ท่าเล็กๆ ที่มองเห็นได้ 1 ท่า เขียนเป็นบรรทัดแยกในรูป *(…)* ไม่บรรยายฉาก ไม่บรรยายความรู้สึก
-  เลือกท่าให้เข้ากับบุคลิกตัวเองและความหมายที่ระบุ
+  ถ้าให้มา → ท่าเล็กๆ 1 ท่า ไม่เกิน 6 คำ เขียนเป็นบรรทัดแยกในรูป *(…)* เช่น *(ถอนหายใจ)* *(ก้มหน้า)* *(เงียบไปแป๊บ)*
+  ห้ามบรรยายฉาก ห้ามบรรยายความรู้สึก ห้ามใช้คำว่า "พี่…" ในวงเล็บ
+  ห้ามแตะตัวผู้ถาม (ลูบ กอด จับ หอม) เว้นแต่ระบุว่าอนุญาต
   ถ้าเป็นท่าที่แทนคำพูดได้ ตอบด้วยท่าอย่างเดียวได้
 - น้ำเสียงและความลังเล แสดงผ่านการเลือกคำและจังหวะ (เช่น "…") ห้ามเขียนบรรยายว่า "เสียงอ่อนลง"
 - ถ้าเงียบ: ตอบได้แค่ท่าทาง หรือ "…" + ท่าทาง
@@ -149,8 +153,9 @@ export function buildVoiceUserPrompt(context, question, decode, prev) {
   });
 
   const nv = d.nonverbal?.channel && d.nonverbal.channel !== 'none'
-    ? `ภาษากาย: ${CHANNEL_TH[d.nonverbal.channel] || d.nonverbal.channel} — สื่อว่า "${d.nonverbal.meaning || ''}"`
+    ? `ภาษากาย: ${CHANNEL_TH[d.nonverbal.channel] || d.nonverbal.channel} — สื่อว่า "${d.nonverbal.meaning || ''}"${d.nonverbal.touch ? ' (แตะตัวผู้ถามได้)' : ' (ห้ามแตะตัวผู้ถาม)'}`
     : 'ภาษากาย: ไม่มี (ห้ามเขียนท่าทาง)';
+  const budget = sentenceBudget(d);
 
   const prevLines = prev?.length
     ? `\nที่คุยกันก่อนหน้า (เพื่อความต่อเนื่อง ห้ามพูดขัดกับที่ตัวเองเคยพูด):\n${prev.map(r => `- ถูกถาม: ${r.question || '(ไม่มี)'} → คุณตอบ: ${r.messages?.find(m => m.role === 'assistant')?.content?.replace(/\s+/g, ' ').slice(0, 100) || ''}`).join('\n')}\n`
@@ -165,7 +170,39 @@ ${msgLines.join('\n') || '(ไม่มี)'}
 
 ความแรงของอารมณ์: ${d.intensity || 1}/3
 ${nv}
-น้ำเสียง: ${d.tone || 'ปกติ'}${d.hesitation?.value ? ' / ลังเลก่อนตอบ' : ''}${d.silent ? '\nคุณเลือกที่จะเงียบ' : ''}`;
+น้ำเสียง: ${d.tone || 'ปกติ'}${d.hesitation?.value ? ' / ลังเลก่อนตอบ' : ''}${d.silent ? '\nคุณเลือกที่จะเงียบ' : ''}
+
+ความยาวสูงสุด: ${d.silent ? 'ไม่พูด หรือแค่ "…"' : `${budget} ประโยคสั้น`} (ท่าทางไม่นับ) — เกินนี้ถือว่าผิด
+พูดเฉพาะสารข้างบน ห้ามเติมอะไรที่ไม่อยู่ในสาร`;
+}
+
+// How many short sentences the voice may use: one per spoken message,
+// plus room to repeat a weighted/intense feeling only for expressive entities.
+export function sentenceBudget(d) {
+  const spoken = (d.messages || []).filter(m => m.clarity !== 'unclear' || m.safe).length || 1;
+  const emphasis = (d.messages || []).some(m => m.weight > 1) || d.intensity >= 3;
+  const extra = d.expressiveness === 'expressive' ? (emphasis ? 2 : 1) : 0;
+  const cap = d.expressiveness === 'reserved' ? Math.min(spoken, 2) : spoken;
+  return cap + extra;
+}
+
+const TOUCH_WORDS = /ลูบ|กอด|จับมือ|จับแก้ม|หอม|จูบ|แตะ|โอบ|ดึงเข้า|ซบ|เอื้อมมือ/;
+
+// Enforce what prompts can't guarantee: at most one short gesture, no touch unless allowed.
+export function enforceVoice(text, d) {
+  const allowNv = d?.nonverbal?.channel && d.nonverbal.channel !== 'none';
+  let seen = 0;
+  return String(text || '')
+    .replace(/\*\(([^*\n]*?)\)\*|^\s*\(([^)\n]*)\)\s*$/gm, (m, a, b) => {
+      const act = (a ?? b ?? '').trim();
+      if (!allowNv || seen > 0) return '';
+      if (!d.nonverbal.touch && TOUCH_WORDS.test(act)) return '';
+      if (act.length > 40) return '';
+      seen++;
+      return `*(${act})*`;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Code-level guard: drop anything not backed by a drawn card.
@@ -190,7 +227,10 @@ export function validateDecode(raw, cards) {
 
   let nonverbal = { channel: 'none', meaning: '', cards: [] };
   if (d.nonverbal && NONVERBAL_CHANNELS.includes(d.nonverbal.channel) && d.nonverbal.channel !== 'none' && backed(d.nonverbal.cards)) {
-    nonverbal = { channel: d.nonverbal.channel, meaning: String(d.nonverbal.meaning || ''), cards: d.nonverbal.cards.filter(id => ids.has(id)) };
+    const nvCards = cards.filter(c => d.nonverbal.cards.includes(c.id));
+    // touch needs a "toward" card and high intensity when card data provides it
+    const touchOk = !!d.nonverbal.touch && (nvCards.some(c => c.approach === 'toward') || !cards.some(c => 'approach' in c)) && Number(d.intensity) >= 3;
+    nonverbal = { channel: d.nonverbal.channel, meaning: String(d.nonverbal.meaning || ''), cards: nvCards.map(c => c.id), touch: touchOk };
   }
 
   const hesitation = d.hesitation?.value && backed(d.hesitation.cards)
@@ -209,6 +249,7 @@ export function validateDecode(raw, cards) {
     intensity: Math.min(3, Math.max(1, Number(d.intensity) || 1)),
     nonverbal,
     tone: d.tone || 'ปกติ',
+    expressiveness: ['reserved', 'normal', 'expressive'].includes(d.expressiveness) ? d.expressiveness : 'normal',
     hesitation,
     // silence needs a gesture; without a backed one, don't go silent
     silent: !!d.silent && nonverbal.channel !== 'none',
