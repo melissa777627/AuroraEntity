@@ -52,6 +52,12 @@ ${persona}
    ห้ามตีความสภาวะของ ${name} ให้กลายเป็นคำสั่งเอง — แต่ถ้าไพ่บอกว่าสั่ง ก็ต้องเป็นคำสั่ง ห้ามกดไว้
 5. ไพ่หลายใบบอกเรื่องเดียวกัน → รวมเป็นสารเดียว weight = จำนวนใบที่บอกซ้ำ (นี่คือการ "ย้ำ" ไม่ใช่สารน้อยลง)
 6. ไพ่กระเด็น = สิ่งที่ ${name} ย้ำ → สารที่มีใบนี้เป็น core:true
+6.5 ช่องทางพูดของแต่ละสาร (channel) — ตามหลัก "ให้ข้อมูลเท่าที่จำเป็น" (Grice):
+   - "sentence": สารที่ตอบคำถามโดยตรง / สารหลัก / มาจากไพ่กระเด็น → ได้ประโยคของตัวเอง
+   - "clause": สารเบื้องหลังที่เกี่ยวข้องแต่ไม่ได้ตอบคำถามตรงๆ → แทรกเป็นวลีสั้นในประโยคอื่น
+   - "body": อารมณ์ที่เอนทิตี้ไม่พูดออกมา → ออกเป็นภาษากาย (ต้องตรงกับ nonverbal) มีได้สารเดียว
+   - "tone": ท่าที/อารมณ์พื้นๆ → ออกผ่านการเลือกคำเท่านั้น มีได้สารเดียว
+   ต้องมี "sentence" อย่างน้อย 1 สารเสมอ ไม่มีสารไหนหายไป แค่ย้ายช่องทาง
 7. สารที่ความหมายไม่ชัดในบริบทนี้ → clarity:"unclear", alt = อีกความหมาย, safe = แก่นที่จริงไม่ว่าจะตีความแบบไหน (ไม่มีก็ null)
 8. คำถามมีข้อสันนิษฐาน (เช่น "โกรธหรอ") → ตรวจว่าไพ่ยืนยันไหม ถ้าไม่ ต้องบอกความจริงตามไพ่
 9. ไพ่ขัดกันเอง → ห้ามเกลี่ยให้กลมกลืน บันทึกไว้ทั้งสองด้าน (มักเป็นช่อง leak)
@@ -75,8 +81,10 @@ ${persona}
 - silent: true เมื่อไพ่บอกว่าเก็บงำ/ไม่อยากพูด และบุคลิกเข้ากัน (ถ้า silent ภาษากายห้ามเป็น none)
 - answer: คำตอบตรงคำถามเป็นวลีสั้น เช่น "ไม่ได้โกรธ" "ใช่" "ไม่ชัด"
   ถ้าผู้ถามแค่เรียกชื่อ/ทักทาย (ไม่ได้ถามอะไร) → answer คือการขานรับ และสารคือสิ่งที่ไพ่บอกว่าตอนนี้เป็นยังไง แบบสั้นที่สุด
-- expressiveness: บุคลิกนี้ปกติพูดมากแค่ไหน "reserved" (ขรึม พูดน้อย) | "normal" | "expressive" (ช่างพูด แสดงออก) — ดูจากข้อมูลตัวตนเท่านั้น
-- nonverbal.touch: true เฉพาะเมื่อมีไพ่ความใกล้ชิด/เข้าหา และอารมณ์แรงมาก — ไม่งั้น false (ห้ามแตะตัวผู้ถาม)
+- expressiveness: เวลาอยู่กับ "ผู้ถามคนนี้" เอนทิตี้แสดงออกแค่ไหน "reserved" | "normal" | "expressive"
+  ดูจากความสัมพันธ์และวิธีที่ปฏิบัติต่อผู้ถาม ไม่ใช่ท่าทีต่อคนนอก (เช่น ขรึมกับคนอื่นแต่ติดน้องและพูดหวานกับน้อง = expressive)
+- nonverbal.touch: true เมื่อไพ่ที่รองรับภาษากายเป็นไพ่เข้าหา/เปิดรับ และ (บุคลิกชอบสัมผัส หรืออารมณ์แรงมาก)
+  false เสมอถ้าไพ่ที่รองรับเป็นไพ่ถอย/ปิดกั้น
 - followup: ถ้ามีสารสำคัญที่ไม่ชัด เสนอคำถามสั้นๆ ที่ผู้ถามจะถามต่อเพื่อให้ชัด (เป็นคำพูดของผู้ถาม ใช้สรรพนามแบบที่ผู้ถามใช้) ไม่มีก็ null
   คำถามแนะนำต้องเป็นกลาง ห้ามชี้นำคำตอบ
 
@@ -85,7 +93,7 @@ ${persona}
   "cards": [{ "id": "", "about": "entity|user|unclear", "reading": "ใบนี้หมายถึงอะไรในคำถามนี้ 1 ประโยค", "why": "เหตุผลสั้นๆ" }],
   "assumption": { "text": "ข้อสันนิษฐานในคำถาม", "holds": true, "actual": "ความจริงตามไพ่" } หรือ null,
   "answer": "",
-  "messages": [{ "text": "สารสั้นๆ", "cards": ["id"], "weight": 1, "core": false, "about": "entity|user|unclear", "clarity": "clear|unclear", "alt": null, "safe": null, "directive": false }],
+  "messages": [{ "text": "สารสั้นๆ", "cards": ["id"], "weight": 1, "core": false, "about": "entity|user|unclear", "clarity": "clear|unclear", "alt": null, "safe": null, "directive": false, "channel": "sentence|clause|body|tone" }],
   "intensity": 1,
   "nonverbal": { "channel": "none", "meaning": "", "cards": [], "touch": false },
   "tone": "ปกติ",
@@ -140,17 +148,23 @@ export function buildVoiceSystemPrompt(entity) {
 
 export function buildVoiceUserPrompt(context, question, decode, prev) {
   const d = decode || {};
-  const msgLines = (d.messages || []).map((m, i) => {
+  const line = m => {
     const tags = [];
     if (m.core) tags.push('สารหลัก');
     if (m.weight > 1) tags.push(`ย้ำ×${m.weight}`);
     if (m.about === 'user') tags.push('เรื่องของผู้ถาม');
     if (m.directive) tags.push('เป็นคำสั่ง/สิ่งที่อยากให้ผู้ถามทำ');
-    if (m.clarity === 'unclear') {
-      return `${i + 1}. [ไม่ชัด] ${m.safe ? `พูดได้แค่: "${m.safe}"` : 'ห้ามพูดถึง'}`;
-    }
-    return `${i + 1}. ${tags.length ? `[${tags.join('][')}] ` : ''}${m.text}`;
-  });
+    if (m.clarity === 'unclear') return `[ไม่ชัด] ${m.safe ? `พูดได้แค่: "${m.safe}"` : 'ห้ามพูดถึง'}`;
+    return `${tags.length ? `[${tags.join('][')}] ` : ''}${m.text}`;
+  };
+  const by = ch => (d.messages || []).filter(m => (m.channel || 'sentence') === ch).map(line);
+  const groups = [
+    ['พูดเป็นประโยค (สารละ 1 ประโยคสั้น)', by('sentence')],
+    ['แทรกเป็นวลีสั้นๆ ในประโยคข้างบน ห้ามแยกเป็นประโยคใหม่', by('clause')],
+    ['ไม่พูดออกมา — แสดงเป็นภาษากายแทน', by('body')],
+    ['ไม่พูดออกมา — ให้รู้สึกผ่านการเลือกคำเท่านั้น', by('tone')]
+  ].filter(([, items]) => items.length);
+  const msgLines = groups.map(([title, items]) => `${title}:\n${items.map(x => `- ${x}`).join('\n')}`);
 
   const nv = d.nonverbal?.channel && d.nonverbal.channel !== 'none'
     ? `ภาษากาย: ${CHANNEL_TH[d.nonverbal.channel] || d.nonverbal.channel} — สื่อว่า "${d.nonverbal.meaning || ''}"${d.nonverbal.touch ? ' (แตะตัวผู้ถามได้)' : ' (ห้ามแตะตัวผู้ถาม)'}`
@@ -166,7 +180,7 @@ ${context?.trim() ? `เรื่องที่ผู้ถามเล่า (
 คำตอบแกน: ${d.answer || '-'}
 ${d.assumption && d.assumption.holds === false ? `ข้อสันนิษฐานในคำถาม "${d.assumption.text}" ไม่จริง — ความจริงคือ ${d.assumption.actual}\n` : ''}
 สารที่คุณส่งมา (พูดได้แค่นี้):
-${msgLines.join('\n') || '(ไม่มี)'}
+${msgLines.join('\n\n') || '(ไม่มี)'}
 
 ความแรงของอารมณ์: ${d.intensity || 1}/3
 ${nv}
@@ -179,11 +193,12 @@ ${nv}
 // How many short sentences the voice may use: one per spoken message,
 // plus room to repeat a weighted/intense feeling only for expressive entities.
 export function sentenceBudget(d) {
-  const spoken = (d.messages || []).filter(m => m.clarity !== 'unclear' || m.safe).length || 1;
+  // Content sets the floor: every spoken message gets its sentence, never cut by personality.
+  const spoken = (d.messages || []).filter(m => (m.channel || 'sentence') === 'sentence' && (m.clarity !== 'unclear' || m.safe)).length || 1;
+  // Personality only decides how much room there is to repeat/emphasise a feeling.
   const emphasis = (d.messages || []).some(m => m.weight > 1) || d.intensity >= 3;
-  const extra = d.expressiveness === 'expressive' ? (emphasis ? 2 : 1) : 0;
-  const cap = d.expressiveness === 'reserved' ? Math.min(spoken, 2) : spoken;
-  return cap + extra;
+  const extra = { reserved: 0, normal: emphasis ? 1 : 0, expressive: emphasis ? 2 : 1 }[d.expressiveness] ?? 0;
+  return spoken + extra;
 }
 
 const TOUCH_WORDS = /ลูบ|กอด|จับมือ|จับแก้ม|หอม|จูบ|แตะ|โอบ|ดึงเข้า|ซบ|เอื้อมมือ/;
@@ -222,15 +237,31 @@ export function validateDecode(raw, cards) {
       clarity: m.clarity === 'unclear' ? 'unclear' : 'clear',
       alt: m.alt || null,
       safe: m.safe || null,
-      directive: !!m.directive
+      directive: !!m.directive,
+      channel: ['sentence', 'clause', 'body', 'tone'].includes(m.channel) ? m.channel : 'sentence'
     }));
 
   let nonverbal = { channel: 'none', meaning: '', cards: [] };
   if (d.nonverbal && NONVERBAL_CHANNELS.includes(d.nonverbal.channel) && d.nonverbal.channel !== 'none' && backed(d.nonverbal.cards)) {
     const nvCards = cards.filter(c => d.nonverbal.cards.includes(c.id));
-    // touch needs a "toward" card and high intensity when card data provides it
-    const touchOk = !!d.nonverbal.touch && (nvCards.some(c => c.approach === 'toward') || !cards.some(c => 'approach' in c)) && Number(d.intensity) >= 3;
+    // touch needs an approaching card behind the gesture, and no withdrawing one
+    const hasApproach = cards.some(c => 'approach' in c);
+    const touchOk = !!d.nonverbal.touch &&
+      (!hasApproach || (nvCards.some(c => c.approach === 'toward') && !nvCards.some(c => c.approach === 'away')));
     nonverbal = { channel: d.nonverbal.channel, meaning: String(d.nonverbal.meaning || ''), cards: nvCards.map(c => c.id), touch: touchOk };
+  }
+
+  // Channel guards: core always spoken; one body (only with a backed gesture), one tone; at least one sentence
+  let bodyUsed = false, toneUsed = false;
+  for (const m of messages) {
+    if (m.core) m.channel = 'sentence';
+    if (m.channel === 'body') {
+      if (bodyUsed || nonverbal.channel === 'none') m.channel = 'clause'; else bodyUsed = true;
+    }
+    if (m.channel === 'tone') { if (toneUsed) m.channel = 'clause'; else toneUsed = true; }
+  }
+  if (messages.length && !messages.some(m => m.channel === 'sentence')) {
+    (messages.find(m => m.channel === 'clause') || messages[0]).channel = 'sentence';
   }
 
   const hesitation = d.hesitation?.value && backed(d.hesitation.cards)

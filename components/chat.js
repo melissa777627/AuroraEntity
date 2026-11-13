@@ -516,6 +516,7 @@ function formatVoice(text) {
   return esc(text || '').replace(/\*\(([^*\n]*?)\)\*/g, '<span class="voice-action">($1)</span>');
 }
 
+const CHANNEL_SAY = { sentence: 'ประโยค', clause: 'วลีแทรก', body: 'ท่าทาง', tone: 'น้ำเสียง' };
 const ABOUT_TH = { entity: 'พี่', user: 'หนู', unclear: 'ไม่ชัด' };
 const CHANNEL_LABEL = {
   affect: 'สีหน้า/อารมณ์', leak: 'อารมณ์รั่ว', illustrator: 'ท่าประกอบคำพูด', emblem: 'ท่าแทนคำ',
@@ -531,7 +532,7 @@ function renderDecodePanel(panel, reading) {
   const msgs = d.messages.map(m => `
     <li class="decode-msg${m.clarity === 'unclear' ? ' unclear' : ''}">
       <span class="decode-about">[${ABOUT_TH[m.about] || m.about}]</span>
-      ${m.core ? '⭐ ' : ''}${esc(m.text)}${m.weight > 1 ? ` <span class="decode-tag">ย้ำ×${m.weight}</span>` : ''}${m.directive ? ' <span class="decode-tag">สั่ง</span>' : ''}
+      ${m.core ? '⭐ ' : ''}${esc(m.text)} <span class="decode-tag">${CHANNEL_SAY[m.channel] || 'ประโยค'}</span>${m.weight > 1 ? ` <span class="decode-tag">ย้ำ×${m.weight}</span>` : ''}${m.directive ? ' <span class="decode-tag">สั่ง</span>' : ''}
       <span class="decode-cards">(${names(m.cards)})</span>
       ${m.clarity === 'unclear' ? `<div class="decode-sub">อาจหมายถึง: ${esc(m.alt || '-')}${m.safe ? ` → พูดได้แค่: "${esc(m.safe)}"` : ''}</div>` : ''}
     </li>`).join('');
