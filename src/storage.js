@@ -235,6 +235,10 @@ export function saveFavSummary(data) { set('fav_summary', data); }
 export function getMidnightChat() { return get('midnight_chat') || null; }
 export function saveMidnightChat(data) { set('midnight_chat', data); }
 
+// 📖 สมุด: cover decoration + the user's own meaning per card, per entity
+export function getNotebook(entityId) { return get(`notebook_${entityId}`) || {}; }
+export function saveNotebook(entityId, data) { set(`notebook_${entityId}`, data); }
+
 export function getFavorites() { return get('favorites') || []; }
 export function saveFavorite(fav) {
   update('favorites', list => {

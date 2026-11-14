@@ -1,4 +1,4 @@
-import { getSettings, get as storeGet, set as storeSet } from './storage.js';
+import { getSettings, getNotebook, get as storeGet, set as storeSet } from './storage.js';
 import { buildDecodeSystemPrompt, buildDecodeUserPrompt, buildVoiceSystemPrompt, buildVoiceUserPrompt, validateDecode, buildTraitsPrompt } from './reading-prompts.js';
 import { buildPersona } from './prompts.js';
 import { buildEntitySystemPrompt, buildAnalysisSystemPrompt, buildUserPrompt, buildAnalysisUserPrompt, buildPatternSystemPrompt, buildPatternUserPrompt, buildManifestSystemPrompt, buildManifestLetterPrompt, buildCouncilPrompt, buildEntityVibePrompt, buildGrievanceSystemPrompt, buildGrievanceUserPrompt, buildGrievanceTonePrompt, buildOfferingSystemPrompt, buildOfferingUserPrompt, buildPostcardSystemPrompt, buildPostcardUserPrompt, buildGuessSystemPrompt, buildGuessUserPrompt, buildGuessReactionSystemPrompt, buildGuessReactionUserPrompt, buildActivitySystemPrompt, buildActivityUserPrompt, buildComfortSystemPrompt, buildComfortUserPrompt, buildBackstagePrompt, buildDailyQuestionPrompt, buildDailyQuestionFeedbackPrompt, buildPollQuestionPrompt, buildPollVotePrompt, buildPollReactionPrompt, buildMailboxSystemPrompt, buildMailboxUserPrompt, buildFavoritismPrompt, buildFavSummaryPrompt, buildMidnightChatPrompt, buildMidnightInteractiveSystemPrompt, buildMidnightReplyPrompt, buildHandcuffBickerPrompt, buildPollChaosPrompt, buildVetoGrumblePrompt, buildReportCardPrompt } from './prompts.js';
@@ -97,13 +97,19 @@ export async function getPersonaTraits(entity) {
   }
 }
 
+// The user's own meaning for a card with this entity (📖 สมุด) — prompt only, never stored on the reading
+function withPersonalNotes(entity, cards) {
+  const notes = getNotebook(entity?.id).notes || {};
+  return cards.map(c => notes[c.id] ? { ...c, personal_note: notes[c.id] } : c);
+}
+
 export async function callDecode(entity, context, question, cards, prev = []) {
   const { key, model } = cfg();
   const decodeModel = getSettings().decodeModel || model;
   const traits = await getPersonaTraits(entity);
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity, traits, !!getSettings().userIsAdult) }] },
-    contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, cards, prev) }] }],
+    contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, withPersonalNotes(entity, cards), prev) }] }],
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
   });
 

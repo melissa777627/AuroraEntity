@@ -14,6 +14,7 @@ import { renderLounge, tryBgFavUpdate } from '../components/lounge.js';
 import { renderCouncil } from '../components/council.js';
 import { renderGrievance } from '../components/grievance.js';
 import { renderOffering } from '../components/offering.js';
+import { renderNotebook } from '../components/notebook.js';
 import { renderBackstage, prefetchMidnightChat, prefetchBackstageEpisodes } from '../components/backstage.js';
 
 // ── Global navigate helper exposed to inline onclick ──
@@ -187,6 +188,9 @@ async function render() {
       break;
     case 'card-of-day':
       renderCardOfDayPage(main);
+      break;
+    case 'notebook':
+      renderNotebook(parts[1], main, parts[2]);
       break;
     case 'settings':
       renderSettings(main);

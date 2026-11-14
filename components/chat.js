@@ -5,6 +5,7 @@ import { getMoonPhase } from '../src/moonphase.js';
 import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
 import { openCardPicker, openCardSpread } from './card-picker.js';
+import { freshCards } from './notebook.js';
 import { openOverview } from './overview.js';
 
 export function renderChat(entityId, readingId, container) {
@@ -33,6 +34,7 @@ export function renderChat(entityId, readingId, container) {
         <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
           <button class="btn-icon" id="clear-history-btn" title="ล้างประวัติการสนทนาทั้งหมด">🗑️</button>
           <button class="btn-icon" id="overview-btn" title="ภาพรวมพี่ — เม้ามอยจากไพ่ที่ออกมา">📜</button>
+          <button class="btn-icon" id="notebook-btn" title="สมุดของพี่">📖</button>
           <button class="btn-icon" id="edit-entity-btn" title="แก้ไข profile">✏️</button>
         </div>
         <div class="moon-badge" title="${moon.meaningTH}">${moon.emoji} ${moon.nameTH}</div>
@@ -102,6 +104,7 @@ export function renderChat(entityId, readingId, container) {
   // Edit entity
   container.querySelector('#edit-entity-btn').addEventListener('click', () => navigate(`#/entity/${entityId}`));
   container.querySelector('#overview-btn').addEventListener('click', () => openOverview(entity));
+  container.querySelector('#notebook-btn').addEventListener('click', () => navigate(`#/notebook/${entityId}`));
 
   // Card picker
   const questionInput = container.querySelector('#question-input');
@@ -284,8 +287,10 @@ export function renderChat(entityId, readingId, container) {
 
         const msgId = `msg_${Date.now()}`;
         reading.messages = [{ id: msgId, role: 'assistant', content: text, tokens: usage }];
+        const { fresh, total } = freshCards(reading.cards, readings.filter(r => r !== reading));
         if (!readings.includes(reading)) readings.push(reading);
         saveReading(reading);
+        if (fresh.length) showToast(`📖 ไพ่ใหม่เข้าสมุด: ${fresh.map(c => c.nameTH || c.name).join(', ')} · ${total}/78`);
 
         actionsEl.style.display = 'flex';
         actionsEl.innerHTML = buildBubbleActions(msgId, reading, entity, text, usage);
