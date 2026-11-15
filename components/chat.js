@@ -34,22 +34,19 @@ export function renderChat(entityId, readingId, container) {
 
       <div class="chat-messages" id="chat-messages"></div>
 
-      <div class="chat-input-area" id="chat-input-area">
-        <div class="chat-input-toggle" id="chat-input-toggle">
-          <span class="chat-input-toggle-chevron">▲</span>
-          <span class="chat-input-toggle-label">ถาม</span>
-        </div>
+      <div class="chat-input-area${getReadingsByEntity(entityId).length ? ' collapsed' : ''}" id="chat-input-area">
+        <button type="button" class="chat-input-toggle" id="chat-input-toggle">
+          <span class="cit-open">🌸 ถาม${esc(entity.name || 'พี่')}…</span>
+          <span class="cit-close">▾ ย่อ</span>
+        </button>
+        <input type="text" class="input ctx-input" id="context-input" placeholder="บริบท เช่น ถามเรื่องงาน..." hidden>
         <div class="chat-input-row">
-          <input type="text" class="input" id="context-input" placeholder="บริบท เช่น ถามเรื่องงาน...">
           <input type="text" class="input" id="question-input" placeholder="คำถาม...">
-        </div>
-        <div class="cards-row">
-          <div class="selected-cards-display" id="selected-cards-display">
-            <span class="no-cards-text">ยังไม่ได้เลือกไพ่</span>
-          </div>
           <button class="mini-deck" id="spread-cards-btn" type="button" disabled title="สับไพ่ (ตั้งคำถามก่อน)" aria-label="สับไพ่"><span></span><span></span><span></span></button>
         </div>
+        <div class="selected-cards-display" id="selected-cards-display"></div>
         <div class="chat-input-actions">
+          <button type="button" class="ctx-toggle" id="ctx-toggle">+ บริบท</button>
           <button type="button" class="continue-toggle" id="continue-toggle" aria-pressed="false" title="เปิด = ไพ่ชุดนี้ต่อจากเรื่องเมื่อกี้ / ปิด = เรื่องใหม่">🔗 ต่อจากเมื่อกี้</button>
           <span id="submit-error" style="font-size:0.78rem;color:#c0616b;display:none"></span>
           <button class="btn btn-primary" id="submit-btn" ${!settings.apiKey ? 'disabled title="ตั้ง API Key ใน Settings ก่อน"' : ''}>
@@ -63,7 +60,30 @@ export function renderChat(entityId, readingId, container) {
   const inputArea = container.querySelector('#chat-input-area');
   const inputToggle = container.querySelector('#chat-input-toggle');
 
-  inputToggle?.addEventListener('click', () => inputArea?.classList.toggle('collapsed'));
+  inputToggle?.addEventListener('click', () => {
+    const opening = inputArea.classList.contains('collapsed');
+    inputArea.classList.toggle('collapsed');
+    if (opening) container.querySelector('#question-input')?.focus();
+  });
+
+  // Context is optional — tucked behind a small chip until wanted
+  const ctxInput = container.querySelector('#context-input');
+  const ctxToggle = container.querySelector('#ctx-toggle');
+  function showContext(on) {
+    ctxInput.hidden = !on;
+    ctxToggle.hidden = on;
+  }
+  ctxToggle.addEventListener('click', () => { showContext(true); ctxInput.focus(); });
+  ctxInput.addEventListener('blur', () => { if (!ctxInput.value.trim()) showContext(false); });
+
+  // Scrolling up to read older messages folds the ask box away (unless a question is in progress)
+  let lastScroll = 0;
+  chatMessages.addEventListener('scroll', () => {
+    const y = chatMessages.scrollTop;
+    const busy = container.querySelector('#question-input').value.trim() || ctxInput.value.trim() || selectedCards.length;
+    if (y < lastScroll - 40 && !busy && !inputArea.contains(document.activeElement)) inputArea.classList.add('collapsed');
+    if (Math.abs(y - lastScroll) > 40) lastScroll = y;
+  }, { passive: true });
 
   // Entity vibe in chat header
   initChatVibe(container, entity);
@@ -198,6 +218,7 @@ export function renderChat(entityId, readingId, container) {
 
     // Clear input
     container.querySelector('#context-input').value = '';
+    showContext(false);
     container.querySelector('#question-input').value = '';
     selectedCards = [];
     questionInput.readOnly = false;
@@ -296,6 +317,7 @@ export function renderChat(entityId, readingId, container) {
           if (i >= 0) readings.splice(i, 1);
           deleteReading(reading.id);
           container.querySelector('#context-input').value = reading.context || '';
+          showContext(!!reading.context);
           questionInput.value = reading.question || '';
           setContinue(!!reading.continued);
           setDrawn(reading.cards || []);
@@ -489,7 +511,7 @@ export function renderAnalysis(panel, data) {
 
 function renderSelectedCards(display, cards, onAbandon) {
   if (!cards.length) {
-    display.innerHTML = '<span class="no-cards-text">ยังไม่ได้จั่วไพ่</span>';
+    display.innerHTML = '';
     return;
   }
   // Drawn cards can't be swapped one by one — only the whole draw can be abandoned
@@ -521,6 +543,7 @@ function initChatVibe(container, entity) {
   }
 
   vibeArea.addEventListener('click', async e => {
+    if (e.target.classList.contains('chat-vibe-text')) { vibeArea.classList.toggle('full'); return; }
     if (e.target.classList.contains('chat-vibe-btn') || e.target.classList.contains('chat-vibe-reset')) {
       vibeArea.innerHTML = `<span class="chat-vibe-text" style="opacity:0.5">⏳</span>`;
       try {
@@ -607,10 +630,15 @@ function renderDecodePanel(panel, reading) {
     <div class="analysis-inner">
       <button class="dp-toggle" aria-expanded="false">🔒 สารที่ส่งมา</button>
       <div class="dp-body" hidden>
-        ${groups}
-        ${d.summary ? `<div class="dp-summary"><div class="dp-group-title">📝 สรุป</div>${esc(d.summary)}</div>` : ''}
-        ${facts.length ? `<div class="dp-facts">${facts.map(f => `<div>${f}</div>`).join('')}</div>` : ''}
-        ${notes ? `<details class="dp-details"><summary>ดูความหมายไพ่ทีละใบ</summary>${notes}</details>` : ''}
+        ${d.summary ? `<div class="dp-summary">${esc(d.summary)}</div>` : groups}
+        <details class="dp-details dp-more">
+          <summary>ดูรายละเอียด</summary>
+          <div class="dp-more-body">
+            ${d.summary ? groups : ''}
+            ${facts.length ? `<div class="dp-facts">${facts.map(f => `<div>${f}</div>`).join('')}</div>` : ''}
+            ${notes ? `<div class="dp-group"><div class="dp-group-title">🂠 ความหมายไพ่ทีละใบ</div>${notes}</div>` : ''}
+          </div>
+        </details>
       </div>
     </div>`;
   panel.querySelector('.dp-toggle').addEventListener('click', function() {
@@ -726,6 +754,8 @@ function injectReadingStyle() {
     .dp-cards { font-size:0.7rem; color:var(--text-soft); opacity:0.85; }
     .dp-facts { font-size:0.76rem; color:var(--text-soft); display:flex; flex-direction:column; gap:2px; }
     .dp-details summary { font-size:0.76rem; color:var(--text-soft); cursor:pointer; }
+    .dp-body[hidden] { display:none; }
+    .dp-more-body { display:flex; flex-direction:column; gap:14px; margin-top:10px; }
     .dp-note { font-size:0.8rem; margin-top:6px; }
     .revoice-btn { font-size:0.9rem; opacity:0.7; }
     .continue-toggle { font:inherit; font-size:0.74rem; padding:4px 10px; border-radius:999px; border:1px dashed var(--accent); background:transparent; color:var(--text-soft); cursor:pointer; margin-right:auto; }

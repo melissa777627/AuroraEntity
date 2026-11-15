@@ -1,5 +1,6 @@
 // ✨ วันนี้ — the daily things in one place: letter status, card of the day, offering, grievance, backstage
-import { getCardOfDay, getDivineMessage, getDivineCooldown, hasUnreadGrievance, hasUnreadBackstage } from '../src/storage.js';
+import { getCardOfDay, hasUnreadGrievance, hasUnreadBackstage } from '../src/storage.js';
+import { letterStatus } from './letter.js';
 
 export function renderToday(container) {
   const date = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -9,12 +10,7 @@ export function renderToday(container) {
   const drawn = cotd?.date === todayKey && cotd?.card;
   const cotdText = drawn ? `วันนี้ได้ ${cotd.card.nameTH || cotd.card.name}` : 'ยังไม่ได้จั่วเลย';
 
-  const saved = getDivineMessage();
-  const cool = getDivineCooldown();
-  let letter;
-  if (saved?.text) letter = ['มีจดหมายรออ่านอยู่', 'แตะเพื่อไปอ่านที่หน้าหลัก'];
-  else if (!cool || Date.now() >= cool) letter = ['มีจดหมายมาถึง', 'มีบางคนอยากพูดอะไรด้วย'];
-  else letter = ['ยังไม่มีจดหมายใหม่', `ฉบับต่อไปอีกราว ${Math.max(1, Math.ceil((cool - Date.now()) / 86400000))} วัน`];
+  const letter = letterStatus();
 
   const tile = (href, em, title, sub, badge, tilt) => `
     <a href="${href}" class="t-tile${tilt ? ' ' + tilt : ''}">

@@ -235,31 +235,40 @@ a { color: inherit; text-decoration: none; }
   #sidebar { display: none; }
   #main-content { height: 100vh; padding-bottom: 56px; overflow-y: auto; }
 
-  .chat-input-area { padding-bottom: 24px; }
+  .chat-input-area { padding: 6px 16px max(12px, env(safe-area-inset-bottom)); }
 
-  /* ── Input collapse toggle (mobile only) ── */
+  /* ── Input collapse toggle (mobile only) ──
+     Open: a small "▾ ย่อ" handle. Folded: one pill bar "🌸 ถามพี่…" */
   .chat-input-toggle {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 6px;
-    padding: 2px 0 10px;
+    width: 100%;
+    padding: 0 0 6px;
+    border: 0;
+    background: none;
+    font: inherit;
     cursor: pointer;
     color: var(--text-soft);
     font-size: 0.72rem;
     user-select: none;
   }
-  .chat-input-toggle-chevron {
-    font-size: 0.65rem;
-    transition: transform 0.2s ease;
-    display: inline-block;
+  .chat-input-toggle .cit-open { display: none; }
+  .chat-input-area.collapsed .chat-input-toggle .cit-close { display: none; }
+  .chat-input-area.collapsed .chat-input-toggle .cit-open {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: var(--bg-primary);
+    color: var(--text-soft);
+    font-size: 0.875rem;
   }
-  .chat-input-area.collapsed .chat-input-toggle-chevron { transform: rotate(180deg); }
-  .chat-input-area.collapsed .chat-input-toggle-label::after { content: ' (กดเพื่อถาม)'; }
-  .chat-input-area.collapsed .chat-input-row,
-  .chat-input-area.collapsed .cards-row,
-  .chat-input-area.collapsed .chat-input-actions { display: none; }
-  .chat-input-area.collapsed { padding: 6px 20px 10px; }
+  .chat-input-area.collapsed .chat-input-toggle { padding: 0; }
+  .chat-input-area.collapsed > :not(.chat-input-toggle) { display: none !important; }
+  .chat-input-area.collapsed { padding: 8px 16px max(10px, env(safe-area-inset-bottom)); }
 
   #mobile-nav {
     display: flex;

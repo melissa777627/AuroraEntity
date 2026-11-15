@@ -135,7 +135,19 @@ nonverbal.touch: true เมื่อไพ่ที่รองรับเป�
 }`;
 }
 
-export function buildDecodeUserPrompt(context, question, cards, prev) {
+// The entity writes first (💌 letter): nobody asked anything
+const INITIATED_DECODE = `ครั้งนี้ไม่มีคำถาม: เอนทิตี้เป็นฝ่ายส่งจดหมายหาผู้ถามเอง ผู้ถามไม่ได้ทักมา ไม่ได้ถามอะไร และไม่ได้บอกว่ามีเรื่องอยากคุย
+ไพ่คือสิ่งที่เอนทิตี้อยากบอกผู้ถามเองตอนนี้ ถอดเป็นสารที่ตั้งใจส่งหาผู้ถาม
+- intent: "" (ผู้ถามไม่ได้ทำอะไร)
+- answer: สารหลักที่เอนทิตี้อยากบอก
+- off_topic: false / ไม่มีข้อสันนิษฐานให้ตรวจ
+นี่คือเรื่องใหม่ ไม่ได้ต่อจากบทสนทนาก่อนหน้า`;
+
+export function buildDecodeUserPrompt(context, question, cards, prev, initiated = false) {
+  if (initiated) return `${INITIATED_DECODE}
+
+ไพ่ที่ได้ (ไม่มีตำแหน่ง ทุกใบคือสารของครั้งนี้):
+${cards.map(cardLine).join('\n')}`;
   return `ข้อความของผู้ถาม: ${question?.trim() || '(ไม่ระบุ)'}
 บริบทที่ผู้ถามเล่า (เป็นเรื่องที่ผู้ถามเล่า ไม่ใช่สารจากเอนทิตี้): ${context?.trim() || '(ไม่มี)'}
 ${historyBlock(prev)}${prev?.length ? '' : '\nนี่คือเรื่องใหม่ ไม่ได้ต่อจากบทสนทนาก่อนหน้า\n'}
@@ -217,7 +229,18 @@ export function buildVoiceSystemPrompt(entity, styleExamples = [], adult = false
   ขึ้นบรรทัดใหม่ได้เฉพาะตอนมีจังหวะหยุดจริง (ลังเล เงียบไป) และท่าทางอยู่บรรทัดของมันเอง`;
 }
 
-export function buildVoiceUserPrompt(context, question, decode, prev, entity = null, recentGestures = []) {
+// Letter mode (initiated = 'short' | 'cards' | true): the entity's own calling signs.
+// Named signs may be said outright; anything else stays at the level of the card's picture.
+function signsBlock(signs) {
+  if (!signs?.length) return `สัญญาณประจำตัว: ยังไม่มี — ห้ามระบุสัตว์ สิ่งของ หรือปรากฏการณ์เจาะจงให้ผู้ถามไปสังเกต พูดได้แค่ระดับภาพในไพ่ (เช่น "อะไรบินผ่านเร็วๆ")\n`;
+  return `สัญญาณประจำตัวของคุณที่ผู้ถามจำได้: ${signs.map(s => `${s.e} ${s.text}`).join(', ')}
+- ถ้าสารเกี่ยวกับการให้สังเกต/ส่งสัญญาณ ระบุสิ่งในรายการนี้ตรงๆ ได้ (ไม่ต้องพูดถ้าสารไม่เกี่ยว)
+- สิ่งที่ไม่อยู่ในรายการ ห้ามระบุชื่อเจาะจง พูดได้แค่ระดับภาพในไพ่ (เช่น "อะไรบินผ่านเร็วๆ")
+`;
+}
+
+export function buildVoiceUserPrompt(context, question, decode, prev, entity = null, recentGestures = [], initiated = false, signs = []) {
+  const short = initiated === 'short';
   const d = decode || {};
   const line = m => {
     const tags = [];
@@ -246,11 +269,20 @@ export function buildVoiceUserPrompt(context, question, decode, prev, entity = n
     ? `\nที่คุยกันก่อนหน้า (เพื่อความต่อเนื่อง ห้ามพูดขัดกับที่ตัวเองเคยพูด):\n${prev.map(r => `- ถูกถาม: ${r.question || '(ไม่มี)'} → คุณตอบ: ${r.messages?.find(m => m.role === 'assistant')?.content?.replace(/\s+/g, ' ').slice(0, 100) || ''}`).join('\n')}\n`
     : '';
 
-  return `ผู้ถามพูดว่า: ${question?.trim() || '(ไม่ระบุ)'}${d.intent ? `
+  const opening = initiated
+    ? `ครั้งนี้คุณเป็นฝ่ายทักผู้ถามก่อน — ส่งเป็นจดหมายสั้นๆ ผู้ถามไม่ได้พูดหรือถามอะไรมาเลย
+- พูดแบบคนที่นึกถึงแล้วส่งข้อความมาเอง ไม่ใช่ตอบคนที่เพิ่งทักมา
+- ห้ามพูดว่าผู้ถามมีเรื่องอยากคุย/อยากบอก ห้ามถาม "มีอะไรเหรอ" "ว่าไง" "มีเรื่องอะไร" "เรียกพี่ทำไม"
+- ไม่มีคำถามให้ตอบ: ข้อ "ประโยคแรกตอบคำถาม" ไม่ใช้ครั้งนี้ ประโยคแรกคือสารหลักของคุณเลย
+${short ? '- แบบทักสั้น: ประโยคเดียวสั้นๆ แบบทักแชท (เช่น "กินข้าวยัง") ห้ามพูดเกินที่ไพ่บอก\n' : ''}${signsBlock(signs)}สารหลักที่อยากบอก: ${d.answer || '-'}
+`
+    : `ผู้ถามพูดว่า: ${question?.trim() || '(ไม่ระบุ)'}${d.intent ? `
 (ผู้ถามกำลัง${d.intent.replace(/^ผู้ถาม(กำลัง)?/, '')})` : ''}
 ${context?.trim() ? `เรื่องที่ผู้ถามเล่า (ไม่ใช่สารของคุณ): ${context.trim()}\n` : ''}${prevLines}
 คำตอบแกน: ${d.answer || '-'}${d.off_topic ? '\nไพ่ไม่ได้ตอบสิ่งที่ผู้ถามพูด — คุณเลือกพูดเรื่องในสารแทน (เปลี่ยนเรื่องอย่างเป็นธรรมชาติ)' : ''}
-${d.assumption && d.assumption.holds === false ? `ข้อสันนิษฐานในคำถาม "${d.assumption.text}" ไม่จริง — ความจริงคือ ${d.assumption.actual}\n` : ''}
+${d.assumption && d.assumption.holds === false ? `ข้อสันนิษฐานในคำถาม "${d.assumption.text}" ไม่จริง — ความจริงคือ ${d.assumption.actual}\n` : ''}`;
+
+  return `${opening}
 สารที่คุณส่งมา (พูดได้แค่นี้):
 ${msgLines.join('\n\n') || '(ไม่มี)'}
 
@@ -259,7 +291,7 @@ ${nv}
 น้ำเสียง: ${d.tone || 'ปกติ'}${d.hesitation?.value ? ' / ลังเลก่อนตอบ' : ''}${d.silent ? '\nคุณเลือกที่จะเงียบ' : ''}
 
 ${recentGestures.length && d.nonverbal?.channel && d.nonverbal.channel !== 'none' ? `ท่าที่คุณเพิ่งใช้: ${recentGestures.join(' / ')} — ลองท่าอื่นที่สื่อความหมายเดียวกัน (ซ้ำได้ถ้าไม่มีท่าอื่นที่ใช่)\n` : ''}คำเรียกผู้ถาม: ${d.warm ? 'เรียกแบบพิเศษตามบุคลิกได้ 1 ครั้ง (ไพ่มีความใกล้ชิด/ขี้เล่น) หรือเรียกตามปกติก็ได้' : 'เรียกตามตัวตนเท่านั้น ห้ามคิดคำเรียกใหม่'}
-ความยาวสูงสุด: ${d.silent ? 'ไม่พูด หรือแค่ "…"' : `${budget} ประโยคสั้น`} (ท่าทางไม่นับ) — เกินนี้ถือว่าผิด
+ความยาวสูงสุด: ${d.silent ? 'ไม่พูด หรือแค่ "…"' : `${short ? 1 : budget} ประโยคสั้น`} (ท่าทางไม่นับ) — เกินนี้ถือว่าผิด
 พูดเฉพาะสารข้างบน ห้ามเติมอะไรที่ไม่อยู่ในสาร ห้ามสัญญาหรือรับปากสิ่งที่สารไม่ได้บอก
 สรรพนามและคำลงท้าย: ใช้ตามตัวตนของคุณเท่านั้น${entity && bannedEndings(entity).length ? ` — ห้ามลงท้ายด้วย ${bannedEndings(entity).map(e => `"${e}"`).join(' ')} เด็ดขาด` : ''}`;
 }

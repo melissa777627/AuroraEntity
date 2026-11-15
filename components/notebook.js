@@ -23,12 +23,27 @@ const SUIT_TH = { Major: 'ไพ่ใหญ่', Wands: 'ไม้', Cups: 'ถ
 const SUIT_SYM = { Major: '✦', Wands: '🔥', Cups: '🌊', Swords: '💨', Pentacles: '🌿' };
 
 // ── decoration options ──
+// Cover materials/prints (the outside of the book)
 const PAPERS = [
-  { id: 'plain', name: 'เรียบ' }, { id: 'lined', name: 'เส้นบรรทัด' }, { id: 'grid', name: 'ตาราง' },
-  { id: 'dots', name: 'จุดไข่ปลา' }, { id: 'polka', name: 'ลายจุด' }, { id: 'gingham', name: 'สก็อต' },
-  { id: 'stripe', name: 'ลายทาง' }, { id: 'hearts', name: 'หัวใจ' }, { id: 'stars', name: 'ดาว' },
-  { id: 'kraft', name: 'คราฟท์' }, { id: 'leather', name: 'หนัง' }, { id: 'holo', name: 'โฮโลแกรม' },
-  { id: 'tartan', name: 'ตาร์ทัน' }
+  { id: 'plain', name: 'เรียบ' }, { id: 'linen', name: 'ผ้าลินิน' }, { id: 'velvet', name: 'กำมะหยี่' },
+  { id: 'quilted', name: 'บุนวม' }, { id: 'marble', name: 'หินอ่อน' }, { id: 'polka', name: 'ลายจุด' },
+  { id: 'gingham', name: 'สก็อต' }, { id: 'checker', name: 'ตารางหมากรุก' }, { id: 'stripe', name: 'ลายทาง' },
+  { id: 'hearts', name: 'หัวใจ' }, { id: 'stars', name: 'ดาว' }, { id: 'floral', name: 'ดอกไม้' },
+  { id: 'cloud', name: 'ก้อนเมฆ' }, { id: 'kraft', name: 'คราฟท์' }, { id: 'leather', name: 'หนัง' },
+  { id: 'holo', name: 'โฮโลแกรม' }, { id: 'tartan', name: 'ตาร์ทัน' }, { id: 'dots', name: 'จุดไข่ปลา' }
+];
+// Writing paper for the pages inside — chosen separately from the cover
+const INSIDES = [
+  { id: 'plain', name: 'ขาวนวล', bg: 'radial-gradient(rgba(160,120,100,0.05) 1px, transparent 1.4px) 0 0/6px 6px, #fffdf8' },
+  { id: 'cream-lined', name: 'บรรทัดมีขอบ', bg: 'linear-gradient(90deg, transparent 26px, rgba(232,110,130,0.45) 26px 27px, transparent 27px), repeating-linear-gradient(to bottom, transparent 0 27px, rgba(110,150,200,0.28) 27px 28px) #fffaf0' },
+  { id: 'grid', name: 'ตารางฟ้า', bg: 'linear-gradient(rgba(120,160,210,0.22) 1px, transparent 1px) 0 0/20px 20px, linear-gradient(90deg, rgba(120,160,210,0.22) 1px, transparent 1px) 0 0/20px 20px, #fbfdff' },
+  { id: 'pink-grid', name: 'ตารางชมพู', bg: 'linear-gradient(rgba(232,130,154,0.20) 1px, transparent 1px) 0 0/18px 18px, linear-gradient(90deg, rgba(232,130,154,0.20) 1px, transparent 1px) 0 0/18px 18px, #fff5f7' },
+  { id: 'dotgrid', name: 'จุดกริด', bg: 'radial-gradient(rgba(120,100,110,0.30) 1.1px, transparent 1.6px) 0 0/18px 18px, #fffdfa' },
+  { id: 'mint-lined', name: 'บรรทัดมินต์', bg: 'repeating-linear-gradient(to bottom, transparent 0 27px, rgba(95,183,154,0.30) 27px 28px) #f3fbf7' },
+  { id: 'pastel', name: 'สีน้ำพาสเทล', bg: 'radial-gradient(60% 45% at 15% 10%, rgba(255,200,225,0.55), transparent 70%), radial-gradient(55% 50% at 90% 40%, rgba(200,215,255,0.5), transparent 70%), radial-gradient(60% 45% at 30% 95%, rgba(200,255,235,0.5), transparent 70%), #fffdfd' },
+  { id: 'recycled', name: 'กระดาษรีไซเคิล', bg: 'radial-gradient(rgba(90,70,50,0.18) 0.8px, transparent 1.3px) 0 0/9px 11px, radial-gradient(rgba(90,70,50,0.10) 1px, transparent 1.6px) 4px 6px/13px 17px, #f1eadf' },
+  { id: 'parchment', name: 'กระดาษเก่า', bg: 'radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(150,105,50,0.18)), radial-gradient(rgba(150,105,50,0.08) 1px, transparent 1.5px) 0 0/7px 7px, #f7ecd6' },
+  { id: 'lilac-dots', name: 'จุดม่วง', bg: 'radial-gradient(rgba(156,126,214,0.30) 1.4px, transparent 2px) 0 0/16px 16px, #faf6ff' }
 ];
 const COLORS = [
   { id: 'pink', c: '#ffd6e0' }, { id: 'peach', c: '#ffe0c7' }, { id: 'cream', c: '#fff4d6' },
@@ -41,22 +56,26 @@ const COLORS = [
 const DECOS = [
   { id: 'none', name: 'ไม่มี' }, { id: 'lace', name: 'ลูกไม้' }, { id: 'stitch', name: 'ด้ายเย็บ' },
   { id: 'gold', name: 'มุมทอง' }, { id: 'pearl', name: 'มุก' }, { id: 'shine', name: 'ประกายวิ้ง' },
-  { id: 'pins', name: 'เข็มกลัด' }, { id: 'moon', name: 'จันทร์เสี้ยว' }
+  { id: 'pins', name: 'เข็มกลัด' }, { id: 'moon', name: 'จันทร์เสี้ยว' }, { id: 'scallop', name: 'ขอบหยัก' },
+  { id: 'corners', name: 'มุมรูปถ่าย' }, { id: 'doodle', name: 'ขอบวาดมือ' }, { id: 'bow', name: 'โบว์ใหญ่' },
+  { id: 'bloom', name: 'ช่อดอกมุมปก' }, { id: 'label', name: 'ป้ายชื่อแปะ' }, { id: 'glitter', name: 'ขอบกากเพชร' }
 ];
 // One tap = a whole look; every piece can still be changed afterwards
 const THEMES = [
-  { id: 'coquette', name: 'Coquette', icon: '🎀', cover: { paper: 'hearts', color: 'pink', font: 'Fahkwang', frame: 'heart', tape: 'pink', ribbon: 'pink', deco: 'lace' }, pack: ['🎀', '🩷', '💌', '🍓', '🦢', '🫧', '🌷', '💗'] },
-  { id: 'cottage', name: 'Cottagecore', icon: '🌼', cover: { paper: 'gingham', color: 'cream', font: 'Mali', frame: 'stamp', tape: 'mint', ribbon: 'mint', deco: 'stitch' }, pack: ['🌼', '🍄', '🧺', '🐝', '🌿', '🍯', '🐇', '🍞'] },
-  { id: 'kawaii', name: 'Kawaii', icon: '☁️', cover: { paper: 'polka', color: 'sky', font: 'Itim', frame: 'circle', tape: 'pink', ribbon: 'pink', deco: 'none' }, pack: ['☁️', '🐰', '🐱', '🍡', '🧸', '🍮', '🌈', '⭐'] },
-  { id: 'y2k', name: 'Y2K', icon: '💿', cover: { paper: 'holo', color: 'lilac', font: 'Playpen Sans Thai', frame: 'star', tape: 'clear', ribbon: 'lilac', deco: 'shine' }, pack: ['💿', '🦋', '⭐', '💖', '📱', '👾', '✨', '🌈'] },
-  { id: 'academia', name: 'Dark Academia', icon: '📜', cover: { paper: 'leather', color: 'brown', font: 'Noto Serif Thai', frame: 'stamp', tape: 'none', ribbon: 'gold', deco: 'gold' }, pack: ['🕯️', '🗝️', '📜', '🪶', '🦉', '☕', '🥀', '📚'] },
-  { id: 'witchy', name: 'Witchy', icon: '🔮', cover: { paper: 'stars', color: 'night', font: 'Athiti', frame: 'circle', tape: 'gold', ribbon: 'lilac', deco: 'moon' }, pack: ['🔮', '🌙', '🕯️', '🃏', '🪄', '🐈‍⬛', '💎', '🍄'] },
-  { id: 'grunge', name: 'Grunge', icon: '🖤', cover: { paper: 'tartan', color: 'black', font: 'K2D', frame: 'polaroid', tape: 'clear', ribbon: 'red', deco: 'pins' }, pack: ['🖤', '⛓️', '🥀', '💀', '🎸', '🕷️', '⚡', '🩹'] },
-  { id: 'mermaid', name: 'Mermaid', icon: '🐚', cover: { paper: 'stripe', color: 'mint', font: 'Kodchasan', frame: 'circle', tape: 'mint', ribbon: 'mint', deco: 'pearl' }, pack: ['🐚', '🫧', '🐠', '🪸', '🌊', '🧜‍♀️', '🦪', '💎'] },
-  { id: 'celestial', name: 'Celestial', icon: '✨', cover: { paper: 'stars', color: 'navy', font: 'Athiti', frame: 'star', tape: 'gold', ribbon: 'gold', deco: 'gold' }, pack: ['☀️', '🌙', '⭐', '🪐', '💫', '🌟', '✨', '🔭'] },
-  { id: 'minimal', name: 'Minimal', icon: '🤍', cover: { paper: 'dots', color: 'cream', font: 'Anuphan', frame: 'none', tape: 'none', ribbon: 'navy', deco: 'none' }, pack: ['🤍', '🌿', '☁️', '✦'] },
-  { id: 'forest', name: 'Fairy Forest', icon: '🍄', cover: { paper: 'plain', color: 'sage', font: 'Mali', frame: 'circle', tape: 'mint', ribbon: 'gold', deco: 'shine' }, pack: ['🍄', '🧚', '🌿', '🐌', '🦔', '🍃', '✨', '🌙'] },
-  { id: 'vintage', name: 'Vintage Letter', icon: '💌', cover: { paper: 'kraft', color: 'cream', font: 'Noto Serif Thai', frame: 'stamp', tape: 'clear', ribbon: 'red', deco: 'stitch' }, pack: ['💌', '📮', '🥀', '🕰️', '🪶', '🎞️', '☕', '🗝️'] }
+  { id: 'coquette', name: 'Coquette', icon: '🎀', cover: { paper: 'quilted', color: 'pink', inside: 'pink-grid', font: 'Fahkwang', frame: 'arch', tape: 'lace', tapePos: 'top', ribbon: 'pink', deco: 'bow' }, pack: ['🎀', '🩷', '💌', '🍓', '🦢', '🫧', '🌷', '💗'], words: ['xoxo', 'with love', 'ของพี่'], doodles: ['heart', 'bow', 'sparkle'] },
+  { id: 'cottage', name: 'Cottagecore', icon: '🌼', cover: { paper: 'gingham', color: 'cream', inside: 'cream-lined', font: 'Mali', frame: 'stamp', tape: 'floral', tapePos: 'corners', ribbon: 'mint', deco: 'stitch' }, pack: ['🌼', '🍄', '🧺', '🐝', '🌿', '🍯', '🐇', '🍞'], words: ['bloom', 'สู้ๆ', 'วันดีๆ'], doodles: ['leaf', 'flower', 'squiggle'] },
+  { id: 'kawaii', name: 'Kawaii', icon: '☁️', cover: { paper: 'cloud', color: 'sky', inside: 'dotgrid', font: 'Itim', frame: 'cloud', tape: 'rainbow', tapePos: 'cross', ribbon: 'pink', deco: 'scallop' }, pack: ['☁️', '🐰', '🐱', '🍡', '🧸', '🍮', '🌈', '⭐'], words: ['yay!', 'คิดถึง', 'hehe'], doodles: ['star', 'heart', 'sparkle'] },
+  { id: 'y2k', name: 'Y2K', icon: '💿', cover: { paper: 'holo', color: 'lilac', inside: 'pastel', font: 'Playpen Sans Thai', frame: 'star', tape: 'checker', tapePos: 'side', ribbon: 'lilac', deco: 'glitter' }, pack: ['💿', '🦋', '⭐', '💖', '📱', '👾', '✨', '🌈'], words: ['lucky ✦', 'OMG', 'bestie'], doodles: ['sparkle', 'star', 'arrow'] },
+  { id: 'academia', name: 'Dark Academia', icon: '📜', cover: { paper: 'leather', color: 'brown', inside: 'parchment', font: 'Noto Serif Thai', frame: 'oval', tape: 'none', tapePos: 'corners', ribbon: 'gold', deco: 'gold' }, pack: ['🕯️', '🗝️', '📜', '🪶', '🦉', '☕', '🥀', '📚'], words: ['dear diary', 'secret', 'memento'], doodles: ['swirl', 'crown', 'leaf'] },
+  { id: 'witchy', name: 'Witchy', icon: '🔮', cover: { paper: 'velvet', color: 'night', inside: 'recycled', font: 'Athiti', frame: 'diamond', tape: 'stars', tapePos: 'top', ribbon: 'lilac', deco: 'moon' }, pack: ['🔮', '🌙', '🕯️', '🃏', '🪄', '🐈‍⬛', '💎', '🍄'], words: ['magic', 'secret', 'ฝันดีนะ'], doodles: ['star', 'swirl', 'sparkle'] },
+  { id: 'grunge', name: 'Grunge', icon: '🖤', cover: { paper: 'tartan', color: 'black', inside: 'grid', font: 'K2D', frame: 'polaroid', tape: 'clear', tapePos: 'cross', ribbon: 'red', deco: 'pins' }, pack: ['🖤', '⛓️', '🥀', '💀', '🎸', '🕷️', '⚡', '🩹'], words: ['NO.', 'whatever', 'ไม่แคร์'], doodles: ['squiggle', 'arrow', 'star'] },
+  { id: 'mermaid', name: 'Mermaid', icon: '🐚', cover: { paper: 'stripe', color: 'mint', inside: 'mint-lined', font: 'Kodchasan', frame: 'circle', tape: 'mint', tapePos: 'corners', ribbon: 'mint', deco: 'pearl' }, pack: ['🐚', '🫧', '🐠', '🪸', '🌊', '🧜‍♀️', '🦪', '💎'], words: ['ocean', 'shine', 'ทะเลเหงา'], doodles: ['swirl', 'sparkle', 'heart'] },
+  { id: 'celestial', name: 'Celestial', icon: '✨', cover: { paper: 'stars', color: 'navy', inside: 'lilac-dots', font: 'Athiti', frame: 'star', tape: 'gold', tapePos: 'side', ribbon: 'gold', deco: 'shine' }, pack: ['☀️', '🌙', '⭐', '🪐', '💫', '🌟', '✨', '🔭'], words: ['stardust', 'wish', 'ดวงดาว'], doodles: ['star', 'sparkle', 'swirl'] },
+  { id: 'minimal', name: 'Minimal', icon: '🤍', cover: { paper: 'linen', color: 'cream', inside: 'dotgrid', font: 'Anuphan', frame: 'none', tape: 'none', tapePos: 'corners', ribbon: 'navy', deco: 'label' }, pack: ['🤍', '🌿', '☁️', '✦'], words: ['notes', 'today', 'บันทึก'], doodles: ['arrow', 'leaf', 'squiggle'] },
+  { id: 'forest', name: 'Fairy Forest', icon: '🍄', cover: { paper: 'floral', color: 'sage', inside: 'recycled', font: 'Mali', frame: 'circle', tape: 'kraft', tapePos: 'top', ribbon: 'gold', deco: 'bloom' }, pack: ['🍄', '🧚', '🌿', '🐌', '🦔', '🍃', '✨', '🌙'], words: ['fairy', 'grow', 'ป่าวิเศษ'], doodles: ['leaf', 'flower', 'sparkle'] },
+  { id: 'vintage', name: 'Vintage Letter', icon: '💌', cover: { paper: 'kraft', color: 'cream', inside: 'parchment', font: 'Noto Serif Thai', frame: 'stamp', tape: 'clear', tapePos: 'top', ribbon: 'red', deco: 'corners' }, pack: ['💌', '📮', '🥀', '🕰️', '🪶', '🎞️', '☕', '🗝️'], words: ['par avion', 'yours', 'ถึงพี่'], doodles: ['swirl', 'heart', 'arrow'] },
+  { id: 'marble', name: 'Marble Café', icon: '☕', cover: { paper: 'marble', color: 'cream', inside: 'plain', font: 'Prompt', frame: 'arch', tape: 'kraft', tapePos: 'side', ribbon: 'navy', deco: 'doodle' }, pack: ['☕', '🥐', '🍰', '🧁', '🫖', '🍪', '🥛', '📖'], words: ['café', 'chill', 'พักก่อน'], doodles: ['squiggle', 'heart', 'arrow'] },
+  { id: 'cherry', name: 'Cherry Picnic', icon: '🍒', cover: { paper: 'checker', color: 'rose', inside: 'cream-lined', font: 'Sriracha', frame: 'ticket', tape: 'pink', tapePos: 'cross', ribbon: 'red', deco: 'scallop' }, pack: ['🍒', '🧺', '🍓', '🥪', '🌷', '🐞', '🎀', '🍉'], words: ['picnic', 'sweet', 'น่ารัก'], doodles: ['heart', 'flower', 'sparkle'] }
 ];
 // Readable Thai fonts only (no old-style calligraphy), grouped by feel
 const FONTS = [
@@ -72,20 +91,72 @@ const FONTS = [
 const FONT_GROUPS = [['cute', 'น่ารัก'], ['elegant', 'เอเลแกนต์'], ['modern', 'โมเดิร์น เรียบๆ']];
 const FRAMES = [
   { id: 'circle', name: 'วงกลม' }, { id: 'heart', name: 'หัวใจ' }, { id: 'star', name: 'ดาว' },
-  { id: 'stamp', name: 'แสตมป์' }, { id: 'polaroid', name: 'โพลารอยด์' }, { id: 'none', name: 'ไม่มีกรอบ' }
+  { id: 'stamp', name: 'แสตมป์' }, { id: 'polaroid', name: 'โพลารอยด์' }, { id: 'oval', name: 'วงรีวินเทจ' },
+  { id: 'arch', name: 'ซุ้มโค้ง' }, { id: 'cloud', name: 'ก้อนเมฆ' }, { id: 'diamond', name: 'ข้าวหลามตัด' },
+  { id: 'ticket', name: 'ตั๋ว' }, { id: 'none', name: 'ไม่มีกรอบ' }
 ];
 const TAPES = [
   { id: 'none', name: 'ไม่มี' }, { id: 'pink', name: 'ชมพูริ้ว' }, { id: 'mint', name: 'มินต์จุด' },
-  { id: 'gold', name: 'ทอง' }, { id: 'lilac', name: 'ม่วงสก็อต' }, { id: 'clear', name: 'ใส' }
+  { id: 'gold', name: 'ทอง' }, { id: 'lilac', name: 'ม่วงสก็อต' }, { id: 'clear', name: 'ใส' },
+  { id: 'floral', name: 'ลายดอก' }, { id: 'checker', name: 'หมากรุก' }, { id: 'rainbow', name: 'สายรุ้ง' },
+  { id: 'kraft', name: 'กระดาษคราฟท์' }, { id: 'stars', name: 'ดาวกลางคืน' }, { id: 'lace', name: 'ลูกไม้' }
+];
+const TAPE_POS = [
+  { id: 'corners', name: 'มุมบน' }, { id: 'top', name: 'แปะกลางบน' }, { id: 'side', name: 'แปะข้างสัน' }, { id: 'cross', name: 'มุมทแยง' }
 ];
 const RIBBONS = [
   { id: 'none', c: '' }, { id: 'red', c: '#d9455f' }, { id: 'pink', c: '#f28aa5' }, { id: 'gold', c: '#d9a441' },
   { id: 'lilac', c: '#9c7ed6' }, { id: 'mint', c: '#5fb79a' }, { id: 'navy', c: '#34446e' }
 ];
-const STICKERS = ['🌸','🎀','💗','💌','🍓','🍒','🧁','🍰','🍡','🧸','🐰','🐱','🐾','🦋','🌷','🌼','🍀','🌈',
-  '☁️','🌙','⭐','✨','💫','🌟','🫧','🕯️','🔮','🃏','🪶','🦅','🕊️','🪽','👑','🗝️','📿','💎','🎐','🍵','🎵','🩷'];
+// Sticker drawers — emoji sets by mood, plus word labels and hand-drawn doodles
+const STICKER_SETS = [
+  { id: 'cute', name: 'น่ารัก', items: ['🌸','🎀','💗','🧸','🐰','🐱','🐾','🍡','🧁','🍰','🌈','🩷','🐣','🐻','🦄','💝'] },
+  { id: 'nature', name: 'ธรรมชาติ', items: ['🌷','🌼','🌻','🍀','🌿','🍃','🍁','🍄','🌵','🌙','☁️','🌊','🐚','🦋','🐝','🐞'] },
+  { id: 'mystic', name: 'ลึกลับ', items: ['🔮','🃏','🕯️','🪄','🗝️','📿','💎','👁️','🌒','🪐','✨','💫','⭐','🌟','🦉','🐈‍⬛'] },
+  { id: 'food', name: 'ของกิน', items: ['🍓','🍒','🍑','🍋','🍉','🍪','🍩','🍮','🍵','🧋','☕','🍜','🍙','🥟','🍭','🍦'] },
+  { id: 'retro', name: 'เรโทร', items: ['💿','📼','📷','🎞️','📮','💌','🕰️','📻','☎️','🎧','🎸','🛼','🎲','👾','🪩','📟'] },
+  { id: 'sky', name: 'นก ปีก มงกุฎ', items: ['🦅','🕊️','🪽','🪶','👑','🎐','🎵','🫧','🏮','⛩️','🪷','🐉'] }
+];
+const WORDS = ['love', 'xoxo', 'secret', 'magic', 'lucky ✦', 'dear diary', 'with love', 'คิดถึง', 'ฝันดีนะ', 'ของพี่', 'โชคดี', 'สู้ๆ', 'บันทึก', 'วันนี้', 'ถึงพี่', 'hehe'];
+const WORD_STYLES = 4; // label · bubble · tape · outline
+// Hand-drawn doodles (stroked SVG, 40×40)
+const DOODLES = {
+  heart: 'M20 33C9 25 5 19 6 13c1-5 7-7 11-3l3 3 3-3c4-4 10-2 11 3 1 6-3 12-14 20z',
+  star: 'M20 5l4 10 10 1-8 7 3 11-9-6-9 6 3-11-8-7 10-1z',
+  sparkle: 'M20 4c1 9 4 13 14 16-10 3-13 7-14 16-1-9-4-13-14-16 10-3 13-7 14-16z',
+  squiggle: 'M4 22c4-8 8-8 10 0s6 8 10 0 8-8 12 0',
+  swirl: 'M22 20a3 3 0 1 1-4-3c5-1 8 3 7 7-1 5-7 8-12 6-6-2-8-9-5-14 3-6 11-8 17-5',
+  arrow: 'M5 28c8-12 18-16 28-14m0 0l-6-5m6 5l-5 6',
+  crown: 'M6 30l-2-18 9 8 7-12 7 12 9-8-2 18z',
+  bow: 'M20 20c-6-8-14-9-14-3s8 7 14 3c6 4 14 3 14-3s-8-5-14 3zm0 0l-5 13m5-13l5 13',
+  leaf: 'M8 32C8 18 18 8 33 7c0 15-10 25-25 25zm0 0l14-14',
+  flower: 'M20 15a4 4 0 1 1 0 .1M20 11c-3-6 3-6 0 0m9 9c6-3 6 3 0 0m-9 9c3 6-3 6 0 0m-9-9c-6 3-6-3 0 0'
+};
+const DOODLE_INKS = ['#e8829a', '#9c7ed6', '#5fb79a', '#d9a441', '#34446e', '#d9455f'];
 
 const DEFAULT_COVER = { theme: 'coquette', ...THEMES[0].cover, title: '', stickers: [] };
+
+// Older notebooks saved before covers and pages were split: give them their theme's page paper
+function normCover(saved = {}) {
+  const th = THEMES.find(t => t.id === saved.theme);
+  const c = { ...DEFAULT_COVER, ...saved };
+  if (!saved.inside) c.inside = th?.cover.inside || 'plain';
+  if (!saved.tapePos) c.tapePos = 'corners';
+  return c;
+}
+function insideBg(cover) { return (INSIDES.find(p => p.id === cover.inside) || INSIDES[0]).bg; }
+
+// One sticker's look: emoji, a word label, or a hand-drawn doodle
+function stickerInner(s) {
+  if (s.t === 'w') return esc(s.e);
+  if (s.t === 'd') return `<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><path d="${DOODLES[s.e] || DOODLES.heart}" fill="none" stroke="${s.c || DOODLE_INKS[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return s.e;
+}
+function stickerClass(s) {
+  if (s.t === 'w') return ` nb-word nb-word-${s.v || 0}`;
+  if (s.t === 'd') return ' nb-doodle';
+  return '';
+}
 
 let deckCache = null;
 async function deck() {
@@ -116,6 +187,13 @@ function svgTile(path, ink, size) {
 }
 const HEART = 'M18 27s-8-5-8-10a4 4 0 0 1 8-1.5a4 4 0 0 1 8 1.5c0 5-8 10-8 10z';
 const STAR = 'M20 9l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z';
+const CLOUD = 'M12 30a6 6 0 0 1-.5-12 8 8 0 0 1 15.5-2.5A6.5 6.5 0 0 1 29 30z';
+const circ = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`;
+const FLOWER = [0, 72, 144, 216, 288].map(a => circ(+(22 + 5.5 * Math.cos(a * Math.PI / 180)).toFixed(1), +(22 + 5.5 * Math.sin(a * Math.PI / 180)).toFixed(1), 4)).join('');
+function svgLayer(inner, size) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'>${inner}</svg>`;
+  return `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, '%27')}')`;
+}
 
 export function paperBackground(paper, bg, dark) {
   const ink = dark ? 'rgba(255,255,255,0.16)' : 'rgba(150,70,95,0.13)';
@@ -131,6 +209,17 @@ export function paperBackground(paper, bg, dark) {
     case 'kraft': return `radial-gradient(rgba(90,55,25,0.16) 1px, transparent 1.5px) 0 0/7px 7px, radial-gradient(rgba(255,255,255,0.18) 1px, transparent 1.5px) 3px 4px/11px 11px, #d4ac80`;
     case 'leather': return `radial-gradient(rgba(0,0,0,0.18) 1px, transparent 1.6px) 0 0/5px 5px, radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1.6px) 2px 3px/9px 9px, radial-gradient(120% 90% at 30% 20%, rgba(255,255,255,0.10), transparent 60%), ${bg}`;
     case 'holo': return `radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.6px) 0 0/22px 22px, linear-gradient(125deg, #ffd1f0, #c9d8ff 30%, #c7fff0 55%, #fff3c4 75%, #f0c9ff)`;
+    case 'linen': return `repeating-linear-gradient(0deg, ${ink} 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, ${ink} 0 1px, transparent 1px 4px), ${bg}`;
+    case 'velvet': return `radial-gradient(130% 80% at 25% 15%, rgba(255,255,255,${dark ? 0.16 : 0.45}), transparent 55%), radial-gradient(90% 70% at 85% 95%, rgba(0,0,0,${dark ? 0.35 : 0.12}), transparent 60%), ${bg}`;
+    case 'quilted': return `linear-gradient(45deg, transparent 47%, ${ink} 47% 53%, transparent 53%) 0 0/28px 28px, linear-gradient(-45deg, transparent 47%, ${ink} 47% 53%, transparent 53%) 0 0/28px 28px, radial-gradient(circle at 50% 30%, rgba(255,255,255,${dark ? 0.12 : 0.5}), transparent 60%) 0 0/28px 28px, ${bg}`;
+    case 'marble': return `radial-gradient(40% 18% at 20% 30%, ${ink}, transparent 70%), radial-gradient(30% 60% at 75% 20%, rgba(255,255,255,0.5), transparent 70%), linear-gradient(115deg, transparent 38%, ${ink} 40%, transparent 42%, transparent 62%, ${ink} 63%, transparent 65%), radial-gradient(50% 30% at 60% 80%, ${ink}, transparent 70%), ${bg}`;
+    case 'checker': return `conic-gradient(${ink} 25%, transparent 0 50%, ${ink} 0 75%, transparent 0) 0 0/28px 28px, ${bg}`;
+    case 'floral': {
+      const petal = dark ? 'rgba(255,214,224,0.35)' : 'rgba(255,255,255,0.85)';
+      const mid = dark ? 'rgba(255,230,160,0.5)' : 'rgba(217,164,65,0.55)';
+      return `${svgLayer(`<path d='${FLOWER}' fill='${petal}'/><circle cx='22' cy='22' r='2.6' fill='${mid}'/>`, 44)} 0 0/44px 44px, ${svgLayer(`<path d='${FLOWER}' fill='${petal}'/><circle cx='22' cy='22' r='2.6' fill='${mid}'/>`, 44)} 22px 22px/44px 44px, ${bg}`;
+    }
+    case 'cloud': return `${svgTile(CLOUD, dark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.9)', 40)} 0 0/48px 48px, ${svgTile(CLOUD, dark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.6)', 40)} 24px 20px/48px 48px, ${bg}`;
     case 'tartan': {
       const a = dark ? 'rgba(200,40,60,0.35)' : 'rgba(200,40,60,0.22)';
       return `repeating-linear-gradient(90deg, ${a} 0 10px, transparent 10px 30px, ${ink} 30px 33px, transparent 33px 50px), repeating-linear-gradient(0deg, ${a} 0 10px, transparent 10px 30px, ${ink} 30px 33px, transparent 33px 50px), ${bg}`;
@@ -150,13 +239,13 @@ function coverHTML(entity, cover, total, editing) {
   return `
     <div class="nb-book${editing ? ' editing' : ''}">
       <div class="nb-cover nb-deco-${cover.deco || 'none'}${dark ? ' dark' : ''}" id="nb-cover" style="background:${paperBackground(cover.paper, col.c, dark)}">
-        ${cover.tape !== 'none' ? `<span class="nb-tape nb-tape-${cover.tape} l"></span><span class="nb-tape nb-tape-${cover.tape} r"></span>` : ''}
+        ${cover.tape !== 'none' ? `<span class="nb-tapes nb-tapes-${cover.tapePos || 'corners'}"><span class="nb-tape nb-tape-${cover.tape} l"></span><span class="nb-tape nb-tape-${cover.tape} r"></span></span>` : ''}
         <div class="nb-label">
           <div class="nb-frame nb-frame-${cover.frame}" style="--ent:${entity.color_primary || '#ffb6c1'}"><span>${esc(entity.icon || '🌙')}</span></div>
           <div class="nb-title" style="font-family:'${cover.font}', var(--font-display)">${esc(title)}</div>
           <div class="nb-count">${total}/78 ใบ</div>
         </div>
-        ${(cover.stickers || []).map((s, i) => `<span class="nb-sticker" data-i="${i}" style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) rotate(${s.r || 0}deg) scale(${s.s || 1})">${s.e}</span>`).join('')}
+        ${(cover.stickers || []).map((s, i) => `<span class="nb-sticker${stickerClass(s)}" data-i="${i}" style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) rotate(${s.r || 0}deg) scale(${s.s || 1})">${stickerInner(s)}</span>`).join('')}
       </div>
       ${ribbon?.c ? `<span class="nb-ribbon" style="--rb:${ribbon.c}"></span>` : ''}
     </div>`;
@@ -164,7 +253,7 @@ function coverHTML(entity, cover, total, editing) {
 
 // Small cover for the shelf page: same paper, colour, finish and stickers as the real cover
 export function miniCoverHTML(entity) {
-  const cover = { ...DEFAULT_COVER, ...(getNotebook(entity.id).cover || {}) };
+  const cover = normCover(getNotebook(entity.id).cover || {});
   const dark = isDark(cover);
   const ribbon = RIBBONS.find(r => r.id === cover.ribbon);
   const seen = new Set();
@@ -175,7 +264,8 @@ export function miniCoverHTML(entity) {
     font: cover.font,
     html: `<span class="shelf-cover nb-deco-${cover.deco || 'none'}${dark ? ' dark' : ''}" style="background:${paperBackground(cover.paper, colorOf(cover).c, dark)}">
       <span class="shelf-face">${esc(entity.icon || '🌙')}</span>
-      ${(cover.stickers || []).slice(0, 8).map(s => `<span class="shelf-stk" style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) rotate(${s.r || 0}deg) scale(${(s.s || 1) * 0.55})">${s.e}</span>`).join('')}
+      ${cover.tape !== 'none' ? `<span class="nb-tapes nb-tapes-${cover.tapePos || 'corners'} mini"><span class="nb-tape nb-tape-${cover.tape} l"></span><span class="nb-tape nb-tape-${cover.tape} r"></span></span>` : ''}
+      ${(cover.stickers || []).slice(0, 8).map(s => `<span class="shelf-stk${stickerClass(s)}" style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) rotate(${s.r || 0}deg) scale(${(s.s || 1) * 0.55})">${stickerInner(s)}</span>`).join('')}
       ${ribbon?.c ? `<span class="shelf-ribbon" style="background:${ribbon.c}"></span>` : ''}
     </span>`
   };
@@ -204,7 +294,7 @@ export async function renderNotebook(entityId, container, startAt) {
   loadFonts();
   const cards = await deck();
   const nb = getNotebook(entityId);
-  nb.cover = { ...DEFAULT_COVER, ...(nb.cover || {}) };
+  nb.cover = normCover(nb.cover || {});
   if (!FONTS.some(f => f.id === nb.cover.font)) nb.cover.font = 'Mitr'; // retired fonts fall back
   nb.notes = nb.notes || {};
   nb.signs = { calling: [], log: [], ...(nb.signs || {}) };
@@ -218,6 +308,8 @@ export async function renderNotebook(entityId, container, startAt) {
   let tab = 'theme';
   let filter = 'all';
   let selected = -1;
+  let stkSet = 'theme';
+  let ink = DOODLE_INKS[0];
 
   container.innerHTML = `<div class="page nb-page"><div class="nb-topbar">
     <button class="btn-icon" id="nb-back" aria-label="กลับ">←</button><span class="nb-top-title">📖 สมุด</span></div>
@@ -232,6 +324,7 @@ export async function renderNotebook(entityId, container, startAt) {
   });
 
   function draw() {
+    container.querySelector('.nb-page')?.style.setProperty('--nb-paper', insideBg(nb.cover));
     if (view === 'inside') return drawInside();
     if (view === 'page') return drawPage();
     const editing = view === 'edit';
@@ -250,10 +343,26 @@ export async function renderNotebook(entityId, container, startAt) {
     }
   }
 
+  // ── sticker drawers ──
+  const addBtn = (s, label) => `<button class="nb-stk${s.t === 'w' ? ' word' : ''}" data-add="${esc(s.e)}" data-t="${s.t || ''}" data-v="${s.v ?? ''}" data-c="${s.c || ''}">${label ?? stickerInner(s)}</button>`;
+  function stickerDrawer(c) {
+    const th = THEMES.find(t => t.id === c.theme) || THEMES[0];
+    const inks = `<div class="nb-opts">${DOODLE_INKS.map(k => `<button class="nb-ink${ink === k ? ' on' : ''}" data-ink="${k}" style="background:${k}" aria-label="สีเส้น"></button>`).join('')}</div>`;
+    const wordGrid = list => `<div class="nb-word-grid">${list.map((w, i) => addBtn({ t: 'w', e: w, v: i % WORD_STYLES }, `<span class="nb-word nb-word-${i % WORD_STYLES}">${esc(w)}</span>`)).join('')}</div>`;
+    const doodleGrid = list => `<div class="nb-stk-grid">${list.map(d => addBtn({ t: 'd', e: d, c: ink })).join('')}</div>`;
+    const emojiGrid = list => `<div class="nb-stk-grid">${list.map(e => addBtn({ e })).join('')}</div>`;
+    if (stkSet === 'theme') return `${emojiGrid(th.pack)}${wordGrid(th.words || [])}${doodleGrid(th.doodles || [])}`;
+    if (stkSet === 'words') return wordGrid(WORDS);
+    if (stkSet === 'doodles') return `${inks}${doodleGrid(Object.keys(DOODLES))}`;
+    if (stkSet === 'packs') return THEMES.filter(t => t.id !== th.id).map(t => `<div class="nb-sub">${t.icon} ${t.name}</div>${emojiGrid(t.pack)}`).join('');
+    const set = STICKER_SETS.find(s => s.id === stkSet);
+    return set ? emojiGrid(set.items) : '';
+  }
+
   // ── cover editor ──
   function editorHTML() {
     const c = nb.cover;
-    const tabs = [['theme', 'ธีม'], ['paper', 'กระดาษ'], ['color', 'สีปก'], ['sticker', 'สติกเกอร์'], ['title', 'ชื่อปก'], ['frame', 'กรอบรูป'], ['extra', 'ขอบ เทป ริบบิ้น']];
+    const tabs = [['theme', 'ธีม'], ['paper', 'ลายปก'], ['color', 'สีปก'], ['inside', 'กระดาษข้างใน'], ['sticker', 'สติกเกอร์'], ['title', 'ชื่อปก'], ['frame', 'กรอบรูป'], ['extra', 'ขอบ เทป ริบบิ้น']];
     let body = '';
     if (tab === 'theme') {
       const th = THEMES.find(t => t.id === c.theme);
@@ -264,22 +373,26 @@ export async function renderNotebook(entityId, container, startAt) {
           <span class="nb-theme-name">${t.name}</span></button>`;
       }).join('')}</div>
       ${th ? `<button class="btn btn-secondary btn-sm" id="nb-pack">แปะชุดสติกเกอร์ ${th.name} ${th.pack.slice(0, 3).join('')}</button>` : ''}
-      <p class="nb-hint">เลือกธีมแล้วยังเปลี่ยนกระดาษ สี ฟอนต์ กรอบ ทีละอย่างได้ในแท็บอื่น</p>`;
+      <p class="nb-hint">เลือกธีมแล้วยังเปลี่ยนลายปก กระดาษข้างใน สี ฟอนต์ กรอบ ทีละอย่างได้ในแท็บอื่น</p>`;
     }
+    if (tab === 'inside') body = `<p class="nb-hint">กระดาษหน้าข้างในสมุด แยกจากลายปก</p>
+      <div class="nb-opts">${INSIDES.map(p => `<button class="nb-swatch${c.inside === p.id ? ' on' : ''}" data-set="inside" data-v="${p.id}"><span class="nb-sw-prev page" style="background:${p.bg}"></span>${p.name}</button>`).join('')}</div>`;
     if (tab === 'paper') body = `<div class="nb-opts">${PAPERS.map(p => `<button class="nb-swatch${c.paper === p.id ? ' on' : ''}" data-set="paper" data-v="${p.id}"><span class="nb-sw-prev" style="background:${paperBackground(p.id, colorOf(c).c, isDark({ ...c, paper: p.id }))}"></span>${p.name}</button>`).join('')}</div>`;
     if (tab === 'color') body = `<div class="nb-opts">${COLORS.map(x => `<button class="nb-dot${c.color === x.id ? ' on' : ''}" data-set="color" data-v="${x.id}" style="background:${x.c}" aria-label="${x.id}"></button>`).join('')}</div>${c.paper === 'kraft' ? '<p class="nb-hint">กระดาษคราฟท์มีสีของตัวเอง ลองเปลี่ยนกระดาษก่อนนะ</p>' : ''}`;
     if (tab === 'sticker') body = `
       <p class="nb-hint">แตะเพื่อแปะ · ลากบนปกเพื่อย้าย · แตะสติกเกอร์บนปกเพื่อปรับ</p>
       ${selected >= 0 && c.stickers[selected] ? `<div class="nb-stk-tools">
-        <span>${c.stickers[selected].e}</span>
+        <span class="nb-stk-cur${stickerClass(c.stickers[selected])}">${stickerInner(c.stickers[selected])}</span>
+        ${c.stickers[selected].t === 'd' ? DOODLE_INKS.map(k => `<button class="nb-ink${c.stickers[selected].c === k ? ' on' : ''}" data-stk-ink="${k}" style="background:${k}" aria-label="สีเส้น"></button>`).join('') : ''}
+        ${c.stickers[selected].t === 'w' ? '<button class="btn btn-ghost btn-sm" data-stk="style">🎨</button>' : ''}
         <button class="btn btn-ghost btn-sm" data-stk="small">➖</button>
         <button class="btn btn-ghost btn-sm" data-stk="big">➕</button>
         <button class="btn btn-ghost btn-sm" data-stk="rot">↻</button>
         <button class="btn btn-ghost btn-sm" data-stk="del">🗑️</button>
         <button class="btn btn-ghost btn-sm" data-stk="done">✓</button></div>` : ''}
-      ${THEMES.filter(t => t.id === c.theme).map(t => `<div class="nb-sub">ชุด ${t.name}</div><div class="nb-stk-grid">${t.pack.map(e => `<button class="nb-stk" data-add="${e}">${e}</button>`).join('')}</div>`).join('')}
-      <div class="nb-sub">ทั้งหมด</div>
-      <div class="nb-stk-grid">${[...new Set([...STICKERS, ...THEMES.flatMap(t => t.pack)])].map(e => `<button class="nb-stk" data-add="${e}">${e}</button>`).join('')}</div>
+      <div class="nb-tabs nb-stk-sets">${[['theme', `ชุด ${THEMES.find(t => t.id === c.theme)?.name || 'ธีม'}`], ['words', '🏷️ คำ'], ['doodles', '✏️ วาดมือ'], ...STICKER_SETS.map(s => [s.id, s.name]), ['packs', 'ชุดธีมอื่น']]
+        .map(([id, n]) => `<button class="nb-chip${stkSet === id ? ' on' : ''}" data-stkset="${id}">${n}</button>`).join('')}</div>
+      ${stickerDrawer(c)}
       ${c.stickers.length ? '<button class="btn btn-ghost btn-sm" id="nb-clear-stk">ลอกสติกเกอร์ออกหมด</button>' : ''}`;
     if (tab === 'title') body = `
       <input class="input nb-title-input" id="nb-title" maxlength="28" placeholder="สมุดของ${esc(entity.name)}" value="${esc(c.title)}">
@@ -292,6 +405,8 @@ export async function renderNotebook(entityId, container, startAt) {
       <div class="nb-opts">${DECOS.map(d => `<button class="nb-chip${(c.deco || 'none') === d.id ? ' on' : ''}" data-set="deco" data-v="${d.id}">${d.name}</button>`).join('')}</div>
       <div class="nb-sub">เทปตกแต่ง</div>
       <div class="nb-opts">${TAPES.map(t => `<button class="nb-chip${c.tape === t.id ? ' on' : ''}" data-set="tape" data-v="${t.id}">${t.id !== 'none' ? `<span class="nb-tape-mini nb-tape-${t.id}"></span>` : ''}${t.name}</button>`).join('')}</div>
+      ${c.tape !== 'none' ? `<div class="nb-sub">ตำแหน่งเทป</div>
+      <div class="nb-opts">${TAPE_POS.map(p => `<button class="nb-chip${(c.tapePos || 'corners') === p.id ? ' on' : ''}" data-set="tapePos" data-v="${p.id}">${p.name}</button>`).join('')}</div>` : ''}
       <div class="nb-sub">ริบบิ้นคั่นหน้า</div>
       <div class="nb-opts">${RIBBONS.map(r => `<button class="nb-dot${c.ribbon === r.id ? ' on' : ''}${r.c ? '' : ' none'}" data-set="ribbon" data-v="${r.id}" style="${r.c ? `background:${r.c}` : ''}" aria-label="${r.id}">${r.c ? '' : '⦸'}</button>`).join('')}</div>`;
     return `
@@ -313,11 +428,15 @@ export async function renderNotebook(entityId, container, startAt) {
     }));
     root.querySelector('#nb-pack')?.addEventListener('click', () => {
       const t = THEMES.find(x => x.id === c.theme);
-      const spots = [[14, 12], [86, 14], [12, 88], [88, 86], [50, 8]];
-      t.pack.slice(0, 4).forEach((e, k) => {
+      const spots = [[14, 12], [86, 14], [12, 88], [88, 86], [50, 8], [24, 70]];
+      const pick = a => a[Math.floor(Math.random() * a.length)];
+      const items = [...t.pack.slice(0, 3).map(e => ({ e })),
+        ...(t.words?.length ? [{ t: 'w', e: pick(t.words), v: Math.floor(Math.random() * WORD_STYLES) }] : []),
+        ...(t.doodles?.length ? [{ t: 'd', e: pick(t.doodles), c: pick(DOODLE_INKS) }] : [])];
+      items.forEach((it, k) => {
         if (c.stickers.length >= 30) return;
         const [x, y] = spots[(c.stickers.length + k) % spots.length];
-        c.stickers.push({ e, x: x + Math.random() * 6 - 3, y: y + Math.random() * 6 - 3, r: Math.round(Math.random() * 40 - 20), s: 1 });
+        c.stickers.push({ ...it, x: x + Math.random() * 6 - 3, y: y + Math.random() * 6 - 3, r: Math.round(Math.random() * 40 - 20), s: 1 });
       });
       save(); draw();
     });
@@ -328,9 +447,19 @@ export async function renderNotebook(entityId, container, startAt) {
       save();
       root.querySelector('.nb-title').textContent = c.title.trim() || `สมุดของ${entity.name}`;
     });
+    root.querySelectorAll('[data-stkset]').forEach(b => b.addEventListener('click', () => { stkSet = b.dataset.stkset; draw(); }));
+    root.querySelectorAll('[data-ink]').forEach(b => b.addEventListener('click', () => { ink = b.dataset.ink; draw(); }));
+    root.querySelectorAll('[data-stk-ink]').forEach(b => b.addEventListener('click', () => {
+      const s = c.stickers[selected];
+      if (s) { s.c = b.dataset.stkInk; save(); draw(); }
+    }));
     root.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
       if (c.stickers.length >= 30) { window.showToast?.('ปกเต็มแล้ว ลอกออกบ้างนะ'); return; }
-      c.stickers.push({ e: b.dataset.add, x: 12 + Math.random() * 76, y: 10 + Math.random() * 80, r: Math.round(Math.random() * 40 - 20), s: 1 });
+      const { t, v, c: col } = b.dataset;
+      const extra = t === 'w' ? { t, v: +v || 0 } : t === 'd' ? { t, c: col || ink } : {};
+      // words lie flatter than emoji so they stay readable
+      const tilt = t === 'w' ? 16 : 40;
+      c.stickers.push({ e: b.dataset.add, ...extra, x: 12 + Math.random() * 76, y: 10 + Math.random() * 80, r: Math.round(Math.random() * tilt - tilt / 2), s: 1 });
       selected = c.stickers.length - 1;
       save(); draw();
     }));
@@ -338,6 +467,7 @@ export async function renderNotebook(entityId, container, startAt) {
       const s = c.stickers[selected];
       if (!s) return;
       const act = b.dataset.stk;
+      if (act === 'style') s.v = ((s.v || 0) + 1) % WORD_STYLES;
       if (act === 'small') s.s = Math.max(0.6, +(s.s - 0.2).toFixed(1));
       if (act === 'big') s.s = Math.min(2.4, +(s.s + 0.2).toFixed(1));
       if (act === 'rot') s.r = ((s.r || 0) + 15) % 360;
@@ -407,7 +537,7 @@ export async function renderNotebook(entityId, container, startAt) {
     const pct = Math.round(total / 78 * 100);
     const noted = Object.values(nb.notes).filter(t => t?.trim()).length;
     root.innerHTML = `${bookmarks()}
-      <div class="nb-inside" style="background:${paperBackground(nb.cover.paper === 'kraft' ? 'dots' : nb.cover.paper, '#fffdf8', false)}">
+      <div class="nb-inside">
         <div class="nb-in-head">
           <div class="nb-in-title" style="font-family:'${nb.cover.font}', var(--font-display)">${esc(nb.cover.title?.trim() || `สมุดของ${entity.name}`)}</div>
           <div class="nb-progress"><span style="width:${pct}%"></span></div>

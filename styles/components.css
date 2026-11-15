@@ -1814,16 +1814,36 @@
 }
 
 .chat-input-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .chat-input-row .input {
+  flex: 1;
+  min-width: 0;
   font-size: 0.875rem;
   padding: 8px 12px;
 }
+
+.ctx-input {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+}
+.ctx-input[hidden], .ctx-toggle[hidden] { display: none; }
+
+.ctx-toggle {
+  font: inherit; font-size: 0.74rem;
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px dashed var(--accent); background: transparent;
+  color: var(--text-soft); cursor: pointer;
+}
+
+.selected-cards-display:empty { display: none; }
+.chat-input-area > .selected-cards-display { margin-bottom: 8px; align-items: center; }
 
 .cards-row {
   display: flex;

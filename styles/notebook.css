@@ -28,16 +28,51 @@
 .nb-frame-polaroid { background: #fff; padding: 8px 8px 24px; width: 100px; height: 116px; transform: rotate(-4deg); box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
 .nb-frame-polaroid span { display: grid; place-items: center; width: 100%; height: 100%; background: color-mix(in srgb, var(--ent) 55%, #fff); }
 .nb-frame-none { background: none; font-size: 58px; }
+.nb-frame-oval { width: 86px; height: 110px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ent) 70%, #000 12%), 0 4px 10px rgba(0,0,0,0.15); }
+.nb-frame-arch { width: 92px; height: 112px; border-radius: 46px 46px 6px 6px; border: 4px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+.nb-frame-cloud { width: 122px; height: 88px; clip-path: path('M28 86C10 86 0 74 2 60 4 48 14 42 24 43 24 24 40 12 58 16 66 4 88 2 100 16 116 18 122 34 116 46 124 56 120 86 100 86Z'); padding-top: 12px; }
+.nb-frame-diamond { width: 80px; height: 80px; transform: rotate(45deg); border: 4px solid #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.15); margin: 12px; font-size: 40px; }
+.nb-frame-diamond > span { transform: rotate(-45deg); }
+.nb-frame-ticket { width: 124px; height: 82px; border-radius: 6px;
+  -webkit-mask: radial-gradient(circle at 0 50%, transparent 10px, #000 10.5px) left/51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 10px, #000 10.5px) right/51% 100% no-repeat;
+  mask: radial-gradient(circle at 0 50%, transparent 10px, #000 10.5px) left/51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 10px, #000 10.5px) right/51% 100% no-repeat;
+  background-image: linear-gradient(90deg, transparent calc(70% - 1px), rgba(255,255,255,0.8) calc(70% - 1px) 70%, transparent 70%); }
 
 /* stickers */
 .nb-sticker { position: absolute; font-size: 30px; line-height: 1; filter: drop-shadow(0 1px 0 #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 2px 3px rgba(0,0,0,0.2)); z-index: 3; }
 .nb-book.editing .nb-sticker { cursor: grab; touch-action: none; }
+.nb-sticker.nb-doodle { filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff); }
+.nb-doodle svg { display: block; width: 40px; height: 40px; }
+.nb-word { font-family: 'Sriracha', 'Itim', var(--font-display); font-size: 15px; line-height: 1.25; white-space: nowrap; color: #4a2030; display: inline-block; }
+.nb-sticker.nb-word { filter: drop-shadow(0 2px 2px rgba(0,0,0,0.18)); }
+.nb-word-0 { background: #fff; padding: 3px 10px; border-radius: 4px; border: 1.5px solid #f7a8bd; }
+.nb-word-1 { background: #ffe6ee; padding: 4px 12px; border-radius: 999px; color: #c9506f; }
+.nb-word-2 { background: repeating-linear-gradient(45deg, rgba(255,226,140,0.9) 0 6px, rgba(255,240,190,0.9) 6px 12px); padding: 3px 12px; color: #6a4a20; }
+.nb-word-3 { color: #fff; font-size: 19px; text-shadow: -1.5px -1.5px 0 #e8829a, 1.5px -1.5px 0 #e8829a, -1.5px 1.5px 0 #e8829a, 1.5px 1.5px 0 #e8829a, 0 3px 0 #c9506f; }
 .nb-sticker.sel { outline: 2px dashed var(--accent-deep); outline-offset: 3px; border-radius: 6px; }
 
 /* washi tape */
 .nb-tape { position: absolute; top: 10px; width: 78px; height: 20px; opacity: 0.85; z-index: 2; }
+.nb-tapes { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .nb-tape.l { left: 4px; transform: rotate(-32deg); }
 .nb-tape.r { right: -10px; transform: rotate(28deg); }
+/* tape placements */
+.nb-tapes-top .nb-tape.l { top: -6px; left: calc(50% - 39px); transform: rotate(-3deg); }
+.nb-tapes-top .nb-tape.r { display: none; }
+.nb-tapes-side .nb-tape.l { top: 18%; left: -14px; transform: rotate(90deg); width: 64px; }
+.nb-tapes-side .nb-tape.r { top: auto; bottom: 18%; left: -14px; right: auto; transform: rotate(90deg); width: 64px; }
+.nb-tapes-cross .nb-tape.l { left: 4px; transform: rotate(-38deg); }
+.nb-tapes-cross .nb-tape.r { top: auto; bottom: 12px; right: -8px; transform: rotate(-38deg); }
+.nb-tapes.mini .nb-tape { width: 38px; height: 10px; }
+.nb-tapes-top.mini .nb-tape.l { left: calc(50% - 19px); top: -3px; }
+.nb-tapes-side.mini .nb-tape { left: -8px; width: 30px; }
+.nb-tape-floral { background: radial-gradient(circle, #fff 2.2px, #f7a8bd 2.6px 3.6px, transparent 4px) 0 0/12px 12px, #ffe3ea; }
+.nb-tape-checker { background: conic-gradient(#222 25%, #fff 0 50%, #222 0 75%, #fff 0) 0 0/10px 10px; opacity: .75; }
+.nb-tape-rainbow { background: linear-gradient(#ffb3c6 0 20%, #ffd8a8 20% 40%, #fff3a8 40% 60%, #b8f0d0 60% 80%, #b8d4ff 80%); }
+.nb-tape-kraft { background: radial-gradient(rgba(90,55,25,0.25) 0.8px, transparent 1.2px) 0 0/5px 5px, #c99b6d; }
+.nb-tape-stars { background: radial-gradient(circle, #ffe08a 1.4px, transparent 1.8px) 0 0/9px 9px, radial-gradient(circle, #fff 0.8px, transparent 1.2px) 4px 5px/11px 11px, #2e3a5c; }
+.nb-tape-lace { background: radial-gradient(circle at 50% 0, transparent 2px, rgba(255,255,255,0.95) 2.5px) 0 0/8px 8px, rgba(255,255,255,0.6);
+  -webkit-mask: radial-gradient(circle at 4px 0, #000 4px, transparent 4.5px) 0 100%/8px 6px repeat-x, linear-gradient(#000 0 0) 0 0/100% calc(100% - 4px) no-repeat; }
 .nb-tape-pink { background: repeating-linear-gradient(45deg, #f7a8bd 0 6px, #ffd6e0 6px 12px); }
 .nb-tape-mint { background: radial-gradient(#fff 2px, transparent 2.5px) 0 0/10px 10px, #9ad8c0; }
 .nb-tape-gold { background: linear-gradient(90deg, #c99a3b, #f3d68a 40%, #c99a3b 70%, #f3d68a); }
@@ -69,7 +104,37 @@
 .nb-deco-pins::before { content: '🧷'; top: 8px; left: 22px; font-size: 26px; transform: rotate(-40deg); }
 .nb-deco-pins::after { content: '🧷'; bottom: 10px; right: 10px; font-size: 26px; transform: rotate(130deg); }
 .nb-deco-moon::after { width: 120px; height: 120px; top: -26px; right: -30px; border-radius: 50%; box-shadow: -22px 18px 0 0 rgba(255,236,170,0.35); }
-@media (prefers-reduced-motion: reduce) { .nb-deco-shine::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .nb-deco-shine::after, .nb-deco-glitter::before { animation: none; } }
+.nb-deco-scallop::before { inset: 4px 4px 4px 14px;
+  background: radial-gradient(circle at 6px 0, #fff 6px, transparent 6.5px) 0 0/12px 7px repeat-x,
+    radial-gradient(circle at 6px 7px, #fff 6px, transparent 6.5px) 0 100%/12px 7px repeat-x,
+    radial-gradient(circle at 0 6px, #fff 6px, transparent 6.5px) 0 0/7px 12px repeat-y,
+    radial-gradient(circle at 7px 6px, #fff 6px, transparent 6.5px) 100% 0/7px 12px repeat-y; opacity: .92; }
+.nb-deco-corners::before { inset: 10px 10px 10px 20px; background:
+  linear-gradient(135deg, #3d2a35 0 50%, transparent 50%) top left/26px 26px no-repeat,
+  linear-gradient(225deg, #3d2a35 0 50%, transparent 50%) top right/26px 26px no-repeat,
+  linear-gradient(45deg, #3d2a35 0 50%, transparent 50%) bottom left/26px 26px no-repeat,
+  linear-gradient(315deg, #3d2a35 0 50%, transparent 50%) bottom right/26px 26px no-repeat; opacity: .75; }
+.nb-cover.dark.nb-deco-corners::before { filter: invert(1); opacity: .6; }
+.nb-deco-doodle::before { inset: 12px 12px 12px 22px; border: 2.5px solid rgba(74,32,48,0.55); border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; }
+.nb-deco-doodle::after { inset: 16px 9px 9px 26px; border: 1.5px solid rgba(74,32,48,0.35); border-radius: 18px 225px 18px 255px / 255px 18px 225px 18px; }
+.nb-cover.dark.nb-deco-doodle::before, .nb-cover.dark.nb-deco-doodle::after { border-color: rgba(255,240,230,0.5); }
+.nb-deco-bow::before { content: '🎀'; top: -4px; left: 50%; transform: translateX(-50%) rotate(-4deg); font-size: 56px; z-index: 4; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2)); }
+.nb-deco-bloom::before { content: '🌸🌼'; top: 2px; left: 14px; font-size: 30px; letter-spacing: -10px; transform: rotate(-12deg); z-index: 4; }
+.nb-deco-bloom::after { content: '🌷🌿'; bottom: 4px; right: 6px; font-size: 30px; letter-spacing: -10px; transform: rotate(14deg); z-index: 4; }
+.nb-deco-label .nb-label { inset: 20% 12% 20% 18%; background: #fffdf8; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); color: #4a2030; padding: 14px; }
+.nb-deco-label .nb-label::before { content: ''; position: absolute; inset: 6px; border: 1px solid rgba(74,32,48,0.25); border-radius: 3px; }
+.nb-cover.dark.nb-deco-label .nb-title { text-shadow: none; }
+.nb-deco-glitter::before { inset: 0; padding: 7px; border-radius: inherit; background:
+  radial-gradient(circle, #fff 1px, transparent 1.6px) 0 0/7px 7px,
+  radial-gradient(circle, #ffe08a 1px, transparent 1.6px) 3px 4px/9px 9px,
+  linear-gradient(120deg, #ffb3d9, #c8b6ff, #9ee6ff, #fff3a8, #ffb3d9) 0 0/300% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: nb-glitter 6s linear infinite; }
+@keyframes nb-glitter { to { background-position: 0 0, 3px 4px, 300% 0; } }
+.nb-theme-prev.nb-deco-bow::before { font-size: 26px; top: -6px; }
+.nb-theme-prev.nb-deco-bloom::before, .nb-theme-prev.nb-deco-bloom::after { font-size: 14px; letter-spacing: -4px; }
+.nb-theme-prev.nb-deco-scallop::before { inset: 2px 2px 2px 7px; }
 
 /* editor */
 .nb-editor { margin-top: 26px; }
@@ -95,7 +160,18 @@
 .nb-stk { font-size: 24px; height: 42px; border: none; border-radius: 10px; background: var(--bg-secondary); cursor: pointer; }
 .nb-stk:active { transform: scale(0.9); }
 .nb-stk-tools { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 12px; background: var(--bg-secondary); }
-.nb-stk-tools > span { font-size: 24px; margin-right: auto; }
+.nb-stk-tools { flex-wrap: wrap; }
+.nb-stk-tools > .nb-stk-cur { font-size: 24px; margin-right: auto; }
+.nb-stk-tools > .nb-stk-cur.nb-word { font-size: 14px; }
+.nb-stk-tools > .nb-stk-cur svg { width: 28px; height: 28px; }
+.nb-stk svg { width: 28px; height: 28px; vertical-align: middle; }
+.nb-stk-sets { padding-bottom: 2px; }
+.nb-stk-sets .nb-chip { flex: none; font-size: 0.78rem; padding: 4px 10px; }
+.nb-word-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.nb-stk.word { height: auto; padding: 6px 6px; font-size: inherit; }
+.nb-ink { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.12); cursor: pointer; padding: 0; }
+.nb-ink.on { box-shadow: 0 0 0 2px var(--accent-deep); }
+.nb-sw-prev.page { border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.12), 3px 3px 0 #f1e9df; }
 
 /* theme picker */
 .nb-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
@@ -112,7 +188,7 @@
 .nb-actions { display: flex; justify-content: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 
 /* inside */
-.nb-inside { border-radius: 14px; padding: 16px 12px 18px; box-shadow: 0 6px 22px rgba(74,32,48,0.12); border: 1px solid var(--analysis-border); }
+.nb-inside { background: var(--nb-paper, #fffdf8); border-radius: 14px; padding: 16px 12px 18px; box-shadow: 0 6px 22px rgba(74,32,48,0.12); border: 1px solid var(--analysis-border); }
 .nb-in-head { text-align: center; margin-bottom: 12px; }
 .nb-in-title { font-size: 1.3rem; color: #4a2030; }
 .nb-progress { height: 8px; margin: 8px auto 4px; max-width: 260px; border-radius: 4px; background: rgba(232,130,154,0.18); overflow: hidden; }
@@ -134,7 +210,7 @@
 /* a card's page — plain paper for reading; ruled lines only where you write (lines snap to the text's line height) */
 .nb-sheet {
   position: relative; border-radius: 6px 14px 14px 6px; padding: 18px 16px 20px; color: #3d2a35;
-  background: radial-gradient(rgba(160,120,100,0.05) 1px, transparent 1.4px) 0 0/6px 6px, #fffdf8;
+  background: var(--nb-paper, radial-gradient(rgba(160,120,100,0.05) 1px, transparent 1.4px) 0 0/6px 6px, #fffdf8);
   box-shadow: 0 1px 0 #f1e9df, 0 3px 0 #fbf6ef, 0 4px 0 #efe6da, 0 10px 24px rgba(74,32,48,0.14);
   font-size: 0.95rem; line-height: 1.65; display: flex; flex-direction: column; gap: 14px;
 }

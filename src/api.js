@@ -103,13 +103,13 @@ function withPersonalNotes(entity, cards) {
   return cards.map(c => notes[c.id] ? { ...c, personal_note: notes[c.id] } : c);
 }
 
-export async function callDecode(entity, context, question, cards, prev = []) {
+export async function callDecode(entity, context, question, cards, prev = [], opts = {}) {
   const { key, model } = cfg();
   const decodeModel = getSettings().decodeModel || model;
   const traits = await getPersonaTraits(entity);
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: buildDecodeSystemPrompt(entity, traits, !!getSettings().userIsAdult) }] },
-    contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, withPersonalNotes(entity, cards), prev) }] }],
+    contents: [{ role: 'user', parts: [{ text: buildDecodeUserPrompt(context, question, withPersonalNotes(entity, cards), prev, !!opts.initiated) }] }],
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
   });
 
@@ -152,7 +152,7 @@ export async function callVoice(entity, context, question, decode, prev = [], on
   const adult = !!getSettings().userIsAdult;
   const normal = {
     sys: buildVoiceSystemPrompt(entity, extras.styleExamples || [], adult),
-    user: buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || [])
+    user: buildVoiceUserPrompt(context, question, decode, prev, entity, extras.recentGestures || [], extras.initiated || false, extras.signs || [])
   };
   // Careful mode, used only if the normal prompt is blocked by Gemini's filter:
   // no hearted examples, no touch, persona lines with words filters misread are left out.
@@ -160,7 +160,7 @@ export async function callVoice(entity, context, question, decode, prev = [], on
   const safeDecode = { ...decode, nonverbal: { ...(decode?.nonverbal || {}), touch: false } };
   const careful = {
     sys: buildVoiceSystemPrompt(safeEntity, [], adult),
-    user: buildVoiceUserPrompt(context, question, safeDecode, prev, safeEntity, extras.recentGestures || [])
+    user: buildVoiceUserPrompt(context, question, safeDecode, prev, safeEntity, extras.recentGestures || [], extras.initiated || false, extras.signs || [])
   };
   const configs = [
     { temperature: 0.8, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },

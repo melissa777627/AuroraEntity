@@ -1,5 +1,6 @@
-import { getEntities, getReadingsByEntity, getDivineMessage, saveDivineMessage, clearDivineMessage, getDivineCooldown, setDivineCooldown, saveReading, getSettings, getEntityPattern, saveEntityPattern, getHandcuffs, isHandcuffActive } from '../src/storage.js';
-import { callEntityVoice, callPatternReading } from '../src/api.js';
+import { getEntities, getReadingsByEntity, getSettings, getEntityPattern, saveEntityPattern, getHandcuffs, isHandcuffActive } from '../src/storage.js';
+import { callPatternReading } from '../src/api.js';
+import { renderLetter } from './letter.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { navigate } from '../src/app.js';
 
@@ -94,7 +95,7 @@ export async function renderHome(container) {
     </div>`;
 
   renderEntityGrid(container, entities);
-  renderDivineSection(container, entities);
+  renderLetter(container.querySelector('#letter-slot'), entities);
   renderPatternSection(container, entities);
 }
 
@@ -103,7 +104,9 @@ function lastSaid(readings) {
   for (let i = readings.length - 1; i >= 0; i--) {
     const msgs = readings[i].messages || [];
     for (let j = msgs.length - 1; j >= 0; j--) {
-      if (msgs[j].role === 'assistant' && msgs[j].content) return String(msgs[j].content).replace(/\s+/g, ' ').trim();
+      // spoken words only: *(gesture)* lines are left out of the preview
+      const said = String(msgs[j].content || '').replace(/\*\([^*\n]*?\)\*/g, '').replace(/\s+/g, ' ').trim();
+      if (msgs[j].role === 'assistant' && said) return said;
     }
   }
   return '';
@@ -138,128 +141,6 @@ function renderEntityGrid(container, entities) {
       </a>`;
   }).join('') + `
     <a href="#/entity/new" class="h-ent add"><span class="h-face">＋</span><span class="h-name">${entities.length ? 'เพิ่มตนใหม่' : 'เพิ่มตนแรกของคุณ'}</span></a>`;
-}
-
-// ── Divine timing ──────────────────────────────────────────────
-function renderDivineSection(container, entities) {
-  if (!entities.length) return;
-  const section = container.querySelector('#divine-section');
-
-  const saved = getDivineMessage();
-
-  // Always show cached message if it exists (regardless of cooldown state)
-  if (saved?.text) {
-    renderDivineMessage(section, saved, entities);
-    return;
-  }
-
-  // No message — only show button if not in cooldown
-  const cooldownTs = getDivineCooldown();
-  if (cooldownTs && Date.now() < cooldownTs) return;
-
-  const slot = container.querySelector('#letter-slot');
-  if (!slot) return;
-  slot.innerHTML = `
-    <button class="h-letter" id="divine-gen-btn">
-      <span class="h-env">💌</span>
-      <span class="h-letter-txt"><b>มีจดหมายมาถึง</b><small>มีบางคนอยากพูดอะไรด้วย แตะเพื่อเปิด</small></span>
-      <span class="h-seal">♥</span>
-    </button>`;
-
-  slot.querySelector('#divine-gen-btn').addEventListener('click', () => {
-    slot.innerHTML = '';
-    generateDivineMessage(section, entities);
-  });
-}
-
-async function generateDivineMessage(section, entities) {
-  section.innerHTML = `<div class="divine-prompt"><span class="divine-prompt-text">💌 กำลังเปิดซอง...</span></div>`;
-
-  try {
-    const entity = entities[Math.floor(Math.random() * entities.length)];
-    const cards = await pickRandomCards(3);
-
-    section.innerHTML = `
-      <div class="divine-bubble-wrap">
-        <div class="divine-cards-row">
-          ${cards.map(c => `<span class="card-chip${c.reversed ? ' reversed' : ''}">${c.name}${c.reversed ? ' ↕' : ''}</span>`).join('')}
-        </div>
-        <div class="entity-bubble" style="--entity-primary:${entity.color_primary || 'var(--accent)'};--entity-secondary:${entity.color_secondary || 'var(--bg-secondary)'}">
-          <div class="bubble-header">
-            <div class="entity-icon-badge divine-mystery">?</div>
-            <span class="bubble-entity-name" style="filter:blur(6px);user-select:none" id="divine-name">${esc(entity.name)}</span>
-          </div>
-          <div class="bubble-content streaming" id="divine-content"></div>
-        </div>
-        <div class="divine-actions" id="divine-actions" style="display:none">
-          <button class="btn btn-secondary btn-sm" id="divine-reveal-btn">👁️ เปิดดูว่าใครส่ง</button>
-          <button class="btn btn-ghost btn-sm" id="divine-read-btn">✓ อ่านแล้ว</button>
-        </div>
-      </div>`;
-
-    const contentEl = section.querySelector('#divine-content');
-    const { text } = await callEntityVoice(entity, 'มีบางอย่างอยากบอก', '', cards, [], (_, full) => {
-      contentEl.textContent = full;
-    });
-    contentEl.classList.remove('streaming');
-
-    section.querySelector('#divine-actions').style.display = 'flex';
-
-    const cooldownTs = Date.now() + (36 + Math.random() * 60) * 3600000;
-    const data = { entityId: entity.id, cards, text };
-    saveDivineMessage(data);
-    setDivineCooldown(cooldownTs);
-    saveReading({ id: `divine_${Date.now()}`, date: new Date().toISOString().split('T')[0], entity_id: entity.id, context: 'divine timing', question: '', cards, messages: [{ id: `msg_${Date.now()}`, role: 'assistant', content: text }] });
-
-    bindDivineReveal(section, entity);
-    bindDivineRead(section, cooldownTs);
-  } catch (err) {
-    section.innerHTML = `<div class="divine-prompt"><span style="color:#c0616b;font-size:0.85rem">❌ ${esc(err.message)}</span></div>`;
-  }
-}
-
-function renderDivineMessage(section, saved, entities) {
-  const entity = entities.find(e => e.id === saved.entityId);
-  if (!entity) return;
-
-  section.innerHTML = `
-    <div class="divine-bubble-wrap">
-      <div class="divine-cards-row">
-        ${(saved.cards || []).map(c => `<span class="card-chip${c.reversed ? ' reversed' : ''}">${c.name}${c.reversed ? ' ↕' : ''}</span>`).join('')}
-      </div>
-      <div class="entity-bubble" style="--entity-primary:${entity.color_primary || 'var(--accent)'};--entity-secondary:${entity.color_secondary || 'var(--bg-secondary)'}">
-        <div class="bubble-header">
-          <div class="entity-icon-badge divine-mystery" id="divine-icon">?</div>
-          <span class="bubble-entity-name" style="filter:blur(6px);user-select:none" id="divine-name">${esc(entity.name)}</span>
-        </div>
-        <div class="bubble-content">${esc(saved.text || '')}</div>
-      </div>
-      <div class="divine-actions" style="display:flex">
-        <button class="btn btn-secondary btn-sm" id="divine-reveal-btn">👁️ เปิดดูว่าใครส่ง</button>
-        <button class="btn btn-ghost btn-sm" id="divine-read-btn">✓ อ่านแล้ว</button>
-      </div>
-    </div>`;
-
-  bindDivineReveal(section, entity);
-  bindDivineRead(section, getDivineCooldown());
-}
-
-function bindDivineReveal(section, entity) {
-  const btn = section.querySelector('#divine-reveal-btn');
-  if (!btn) return;
-  let revealed = false;
-  btn.addEventListener('click', () => {
-    if (!revealed) {
-      revealed = true;
-      const iconEl = section.querySelector('.divine-mystery');
-      const nameEl = section.querySelector('#divine-name');
-      if (iconEl) iconEl.textContent = entity.icon || '🌙';
-      if (nameEl) nameEl.style.filter = 'none';
-      btn.textContent = `💬 คุยกับ${entity.name}`;
-    } else {
-      navigate(`#/chat/${entity.id}`);
-    }
-  });
 }
 
 // ── Biweekly Pattern Reading ────────────────────────────────────
@@ -347,29 +228,6 @@ function renderPatternResult(section, entity, data) {
     saveEntityPattern(entity.id, { ...data, dismissed: true });
     section.innerHTML = '';
   });
-}
-
-function bindDivineRead(section, cooldownTs) {
-  const btn = section.querySelector('#divine-read-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    clearDivineMessage();
-    const ms = (cooldownTs || 0) - Date.now();
-    const daysLeft = ms > 0 ? Math.ceil(ms / 86400000) : 1;
-    section.innerHTML = `<div class="divine-prompt"><span style="color:var(--text-soft);font-size:0.85rem">✨ อ่านแล้ว — อาจมีข้อความใหม่ใน ~${daysLeft} วัน</span></div>`;
-  });
-}
-
-async function pickRandomCards(count) {
-  const data = await fetch('data/cards.json').then(r => r.json());
-  const pool = [...(data.tarot || [])];
-  const picked = [];
-  while (picked.length < count && pool.length) {
-    const i = Math.floor(Math.random() * pool.length);
-    const card = pool.splice(i, 1)[0];
-    picked.push({ ...card, reversed: false, position_label: ['ที่หนึ่ง','ที่สอง','ที่สาม'][picked.length] });
-  }
-  return picked;
 }
 
 function buildHandcuffBannerHTML(handcuff, entities) {
