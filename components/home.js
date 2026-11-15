@@ -1,4 +1,4 @@
-import { getEntities, getReadingsByEntity, getLastReadingDate, getDivineMessage, saveDivineMessage, clearDivineMessage, getDivineCooldown, setDivineCooldown, saveReading, getSettings, getEntityPattern, saveEntityPattern, getHandcuffs, isHandcuffActive } from '../src/storage.js';
+import { getEntities, getReadingsByEntity, getDivineMessage, saveDivineMessage, clearDivineMessage, getDivineCooldown, setDivineCooldown, saveReading, getSettings, getEntityPattern, saveEntityPattern, getHandcuffs, isHandcuffActive } from '../src/storage.js';
 import { callEntityVoice, callPatternReading } from '../src/api.js';
 import { getMoonPhase } from '../src/moonphase.js';
 import { navigate } from '../src/app.js';
@@ -57,129 +57,87 @@ function getDailyAffirmation() {
 export async function renderHome(container) {
   const entities = getEntities();
   const moon = getMoonPhase();
-  const today = new Date();
-  const thaiDate = today.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const affirmation = getDailyAffirmation();
+  const thaiDate = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
+  const affirmation = getDailyAffirmation().replace(/\s*—\s*/g, ' ');
 
   const handcuff = isHandcuffActive() ? getHandcuffs() : null;
   const handcuffBannerHtml = handcuff ? buildHandcuffBannerHTML(handcuff, entities) : '';
 
   container.innerHTML = `
-    <div class="landing-hero" id="landing-hero">
-      <a href="#/settings" class="landing-settings-btn" title="Settings">⚙️</a>
-      <div class="landing-stars"></div>
-      <div class="landing-top-row">
-        <span class="landing-moon-badge" title="${moon.meaningTH}">${moon.emoji} ${moon.nameTH}</span>
-        <span class="landing-date-text">${thaiDate}</span>
-      </div>
-      <div class="landing-affirmation">
-        <p class="affirmation-text">${esc(affirmation)}</p>
-      </div>
-    </div>
+    <div class="h-page">
+      <header class="h-hero">
+        <div class="h-hero-top">
+          <span class="h-moon" title="${esc(moon.meaningTH)}">${moon.emoji} ${esc(moon.nameTH)}</span>
+          <span class="h-date">${thaiDate}</span>
+          <a href="#/search" class="h-ico" aria-label="ค้นหา">🔍</a>
+          <a href="#/settings" class="h-ico" aria-label="ตั้งค่า">⚙️</a>
+        </div>
+        <p class="h-aff">${esc(affirmation)}</p>
+        <div id="letter-slot"></div>
+      </header>
 
-    <div class="home-lower">
-      ${handcuffBannerHtml}
-      <div id="divine-section"></div>
-      <div id="pattern-section"></div>
-      <div id="quiet-section"></div>
-      ${entities.length ? `
-        <div class="home-section-label">สื่อสารกับตน</div>
-        <div class="entity-grid" id="entity-grid"></div>
-      ` : `
-        <div class="entity-grid" id="entity-grid"></div>
-      `}
+      <div class="home-lower">
+        ${handcuffBannerHtml}
+        <div id="divine-section"></div>
+        <div id="pattern-section"></div>
+        <div class="h-label">สื่อสารกับตน</div>
+        <div class="h-ents" id="entity-grid"></div>
+        <div class="h-label">ชวนพี่ๆ คุยด้วยกัน</div>
+        <div class="h-stickers">
+          <a href="#/multi" class="h-stk"><span>🔀</span>ถามหลายตน</a>
+          <a href="#/council" class="h-stk"><span>🗳️</span>สภาพี่</a>
+          <a href="#/favorites" class="h-stk"><span>❤️</span>ที่ชอบ</a>
+          <a href="#/calendar" class="h-stk"><span>📅</span>ปฏิทิน</a>
+          <a href="#/search" class="h-stk"><span>🔍</span>ค้นหา</a>
+        </div>
+      </div>
     </div>`;
 
   renderEntityGrid(container, entities);
-  renderQuietSection(container, entities);
   renderDivineSection(container, entities);
   renderPatternSection(container, entities);
 }
 
-// ── Entity grid ────────────────────────────────────────────────
+// ── Entity cards: face, name, the last thing they said ─────────
+function lastSaid(readings) {
+  for (let i = readings.length - 1; i >= 0; i--) {
+    const msgs = readings[i].messages || [];
+    for (let j = msgs.length - 1; j >= 0; j--) {
+      if (msgs[j].role === 'assistant' && msgs[j].content) return String(msgs[j].content).replace(/\s+/g, ' ').trim();
+    }
+  }
+  return '';
+}
+
+function ago(dateStr) {
+  if (!dateStr) return '';
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days <= 0) return 'วันนี้';
+  if (days === 1) return 'เมื่อวาน';
+  if (days < 30) return `${days} วันก่อน`;
+  return formatDate(dateStr);
+}
+
 function renderEntityGrid(container, entities) {
   const grid = container.querySelector('#entity-grid');
   if (!grid) return;
 
-  if (!entities.length) {
-    grid.innerHTML = `
-      <div class="entity-card entity-card-add" onclick="navigate('#/entity/new')">
-        <div class="add-icon">✨</div>
-        <div class="entity-card-name">เพิ่มตนแรกของคุณ</div>
-        <div class="entity-card-meta">กดเพื่อสร้าง Entity ใหม่</div>
-      </div>`;
-    return;
-  }
-
-  entities.forEach(entity => {
+  grid.innerHTML = entities.map(entity => {
     const readings = getReadingsByEntity(entity.id);
     const last = readings[readings.length - 1];
-    const lastDate = last ? formatDate(last.date) : 'ยังไม่มี reading';
-
-    const card = document.createElement('div');
-    card.className = 'entity-card';
-    card.style.setProperty('--entity-primary', entity.color_primary || '#ffb6c1');
-    card.style.setProperty('--entity-secondary', entity.color_secondary || '#ffe4ed');
-    card.innerHTML = `
-      <div class="entity-card-icon" style="background:${entity.color_secondary || 'var(--bg-secondary)'}">
-        ${entity.icon || '🌙'}
-      </div>
-      <div class="entity-card-name">${esc(entity.name || 'ไม่มีชื่อ')}</div>
-      <div class="entity-card-meta">${esc(entity.domain || '')}</div>
-      <div class="entity-card-last-reading">📖 ${lastDate}</div>`;
-
-    card.addEventListener('click', () => navigate(`#/chat/${entity.id}`));
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn-icon';
-    editBtn.style.cssText = 'position:absolute;top:8px;right:8px;font-size:0.8rem;opacity:0;transition:opacity 0.2s';
-    editBtn.textContent = '✏️';
-    editBtn.title = 'แก้ไข profile';
-    editBtn.addEventListener('click', e => { e.stopPropagation(); navigate(`#/entity/${entity.id}`); });
-    card.style.position = 'relative';
-    card.appendChild(editBtn);
-    card.addEventListener('mouseenter', () => editBtn.style.opacity = '1');
-    card.addEventListener('mouseleave', () => editBtn.style.opacity = '0');
-
-    grid.appendChild(card);
-  });
-
-  const addCard = document.createElement('div');
-  addCard.className = 'entity-card entity-card-add';
-  addCard.innerHTML = `<div class="add-icon">+</div><div class="entity-card-name">เพิ่มตนใหม่</div>`;
-  addCard.addEventListener('click', () => navigate('#/entity/new'));
-  grid.appendChild(addCard);
-}
-
-// ── Quiet entities ─────────────────────────────────────────────
-function renderQuietSection(container, entities) {
-  const section = container.querySelector('#quiet-section');
-  if (!section) return;
-  const today = new Date();
-
-  const quiet = entities.filter(e => {
-    const last = getLastReadingDate(e.id);
-    if (!last) return true;
-    return (today - new Date(last)) / 86400000 >= 14;
-  });
-
-  if (!quiet.length) return;
-
-  section.innerHTML = `
-    <div class="quiet-section">
-      <div class="quiet-label">🌙 ยังอยู่นะ</div>
-      <div class="quiet-entities">
-        ${quiet.map(e => `
-          <button class="quiet-entity-btn" data-id="${e.id}">
-            <span>${e.icon || '🌙'}</span>
-            <span>${esc(e.name)}</span>
-          </button>`).join('')}
-      </div>
-    </div>`;
-
-  section.querySelectorAll('.quiet-entity-btn').forEach(btn => {
-    btn.addEventListener('click', () => navigate(`#/chat/${btn.dataset.id}`));
-  });
+    const days = last ? (Date.now() - new Date(last.date).getTime()) / 86400000 : Infinity;
+    const quiet = days >= 14;
+    const said = lastSaid(readings);
+    const say = quiet ? '🌙 ยังอยู่นะ ไม่ได้คุยกันนานแล้ว' : said;
+    return `
+      <a href="#/chat/${entity.id}" class="h-ent${quiet ? ' quiet' : ''}" style="--ec:${entity.color_secondary || '#ffe4ed'};--ep:${entity.color_primary || '#ffb6c1'}">
+        <span class="h-face">${esc(entity.icon || '🌙')}</span>
+        <span class="h-name">${esc(entity.name || 'ไม่มีชื่อ')}</span>
+        ${say ? `<span class="h-say">${esc(say)}</span>` : `<span class="h-say quiet">ยังไม่ได้คุยกันเลย</span>`}
+        ${last ? `<span class="h-when">${ago(last.date)}</span>` : ''}
+      </a>`;
+  }).join('') + `
+    <a href="#/entity/new" class="h-ent add"><span class="h-face">＋</span><span class="h-name">${entities.length ? 'เพิ่มตนใหม่' : 'เพิ่มตนแรกของคุณ'}</span></a>`;
 }
 
 // ── Divine timing ──────────────────────────────────────────────
@@ -199,18 +157,23 @@ function renderDivineSection(container, entities) {
   const cooldownTs = getDivineCooldown();
   if (cooldownTs && Date.now() < cooldownTs) return;
 
-  section.innerHTML = `
-    <div class="divine-prompt">
-      <span class="divine-prompt-text">🔮 มีบางคนอยากพูดอะไรด้วย</span>
-      <button class="btn btn-secondary btn-sm" id="divine-gen-btn">เปิดดู</button>
-    </div>`;
+  const slot = container.querySelector('#letter-slot');
+  if (!slot) return;
+  slot.innerHTML = `
+    <button class="h-letter" id="divine-gen-btn">
+      <span class="h-env">💌</span>
+      <span class="h-letter-txt"><b>มีจดหมายมาถึง</b><small>มีบางคนอยากพูดอะไรด้วย แตะเพื่อเปิด</small></span>
+      <span class="h-seal">♥</span>
+    </button>`;
 
-  section.querySelector('#divine-gen-btn').addEventListener('click', () => generateDivineMessage(section, entities));
+  slot.querySelector('#divine-gen-btn').addEventListener('click', () => {
+    slot.innerHTML = '';
+    generateDivineMessage(section, entities);
+  });
 }
 
 async function generateDivineMessage(section, entities) {
-  const btn = section.querySelector('#divine-gen-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  section.innerHTML = `<div class="divine-prompt"><span class="divine-prompt-text">💌 กำลังเปิดซอง...</span></div>`;
 
   try {
     const entity = entities[Math.floor(Math.random() * entities.length)];

@@ -111,7 +111,8 @@ function loadFonts() {
 // ── paper patterns as inline backgrounds (ink follows the cover's lightness) ──
 function svgTile(path, ink, size) {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'><path d='${path}' fill='${ink}'/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  // single quotes (encoded inside) so this can sit in a style="..." attribute
+  return `url('data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g, '%27')}')`;
 }
 const HEART = 'M18 27s-8-5-8-10a4 4 0 0 1 8-1.5a4 4 0 0 1 8 1.5c0 5-8 10-8 10z';
 const STAR = 'M20 9l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z';
@@ -161,6 +162,26 @@ function coverHTML(entity, cover, total, editing) {
     </div>`;
 }
 
+// Small cover for the shelf page: same paper, colour, finish and stickers as the real cover
+export function miniCoverHTML(entity) {
+  const cover = { ...DEFAULT_COVER, ...(getNotebook(entity.id).cover || {}) };
+  const dark = isDark(cover);
+  const ribbon = RIBBONS.find(r => r.id === cover.ribbon);
+  const seen = new Set();
+  getReadingsByEntity(entity.id).forEach(r => (r.cards || []).forEach(c => seen.add(c.id)));
+  return {
+    total: seen.size,
+    title: cover.title?.trim() || entity.name || '',
+    font: cover.font,
+    html: `<span class="shelf-cover nb-deco-${cover.deco || 'none'}${dark ? ' dark' : ''}" style="background:${paperBackground(cover.paper, colorOf(cover).c, dark)}">
+      <span class="shelf-face">${esc(entity.icon || '🌙')}</span>
+      ${(cover.stickers || []).slice(0, 8).map(s => `<span class="shelf-stk" style="left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) rotate(${s.r || 0}deg) scale(${(s.s || 1) * 0.55})">${s.e}</span>`).join('')}
+      ${ribbon?.c ? `<span class="shelf-ribbon" style="background:${ribbon.c}"></span>` : ''}
+    </span>`
+  };
+}
+export { loadFonts as loadNotebookFonts };
+
 // ── data: which cards came up, when, and what was said ──
 function collect(entityId) {
   const map = {};
@@ -203,7 +224,10 @@ export async function renderNotebook(entityId, container, startAt) {
     <div id="nb-view"></div></div>`;
   const root = container.querySelector('#nb-view');
   container.querySelector('#nb-back').addEventListener('click', () => {
-    if (view === 'cover' || (startAt && view === 'inside')) location.hash = `#/chat/${entityId}`;
+    if (view === 'cover' || (startAt && view === 'inside')) {
+      // back to wherever it was opened from (shelf or chat)
+      if (history.length > 1) history.back(); else location.hash = `#/chat/${entityId}`;
+    }
     else { view = view === 'page' ? 'inside' : 'cover'; draw(); }
   });
 

@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <title>Entity Oracle 🌸</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="styles/ritual.css">
   <link rel="stylesheet" href="styles/overview.css">
   <link rel="stylesheet" href="styles/notebook.css">
+  <link rel="stylesheet" href="styles/home.css">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
@@ -32,6 +33,12 @@
       </div>
       <div id="entity-nav-list"></div>
       <div class="sidebar-footer">
+        <a href="#/today" class="nav-link" data-route="today">
+          <span>✨</span> วันนี้
+        </a>
+        <a href="#/shelf" class="nav-link" data-route="shelf">
+          <span>📖</span> ชั้นสมุด
+        </a>
         <a href="#/card-of-day" class="nav-link" data-route="card-of-day">
           <span>🃏</span> ไพ่วันนี้
         </a>
@@ -77,42 +84,10 @@
 
   <!-- Mobile Bottom Nav -->
   <nav id="mobile-nav">
-    <a href="#/" data-route="home">
-      <span>🌸</span>
-      <span>หน้าหลัก</span>
-    </a>
-    <a href="#/lounge" data-route="lounge">
-      <span>🛋️</span>
-      <span>ห้องนั่งเล่น</span>
-    </a>
-    <a href="#/backstage" data-route="backstage">
-      <span>🎭</span>
-      <span>บทสนทนาลับ</span>
-    </a>
-    <a href="#/council" data-route="council">
-      <span>🗳️</span>
-      <span>สภาพี่</span>
-    </a>
-    <a href="#/offering" data-route="offering">
-      <span>🎁</span>
-      <span>ออฟเฟอริ่ง</span>
-    </a>
-    <a href="#/grievance" data-route="grievance">
-      <span>🔔</span>
-      <span>ร้องเรียน</span>
-    </a>
-    <a href="#/favorites" data-route="favorites">
-      <span>❤️</span>
-      <span>Favorites</span>
-    </a>
-    <a href="#/search" data-route="search">
-      <span>🔍</span>
-      <span>Search</span>
-    </a>
-    <a href="#/settings" data-route="settings">
-      <span>⚙️</span>
-      <span>Settings</span>
-    </a>
+    <a href="#/" data-route="home"><span class="ti">🌸</span><span>หน้าหลัก</span></a>
+    <a href="#/shelf" data-route="shelf"><span class="ti">📖</span><span>สมุด</span></a>
+    <a href="#/today" data-route="today"><span class="ti">✨</span><span>วันนี้</span></a>
+    <a href="#/lounge" data-route="lounge"><span class="ti">🛋️</span><span>ห้องนั่งเล่น</span></a>
   </nav>
 
   <script type="module" src="src/app.js"></script>

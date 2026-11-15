@@ -1,4 +1,4 @@
-const CACHE = 'aurora-v5';
+const CACHE = 'aurora-v6';
 const DATA_ONLY = [
   './data/cards.json',
   './data/entities.json',

@@ -6,7 +6,6 @@ import { getSettings } from '../src/storage.js';
 import { showToast, navigate } from '../src/app.js';
 import { openCardPicker, openCardSpread } from './card-picker.js';
 import { freshCards } from './notebook.js';
-import { openOverview } from './overview.js';
 
 export function renderChat(entityId, readingId, container) {
   const entity = getEntityById(entityId);
@@ -25,19 +24,12 @@ export function renderChat(entityId, readingId, container) {
   container.innerHTML = `
     <div class="chat-screen" data-entity-id="${entity.id}">
       <div class="chat-header">
-        <div class="chat-header-icon">${entity.icon || '🌙'}</div>
-        <div class="chat-header-info">
+        <button class="chat-back" id="chat-back" aria-label="กลับหน้าหลัก">‹</button>
+        <button class="chat-header-icon" id="chat-ava" aria-label="เปิดข้อมูลของ${esc(entity.name || '')}">${entity.icon || '🌙'}</button>
+        <div class="chat-header-info" id="chat-info">
           <h2>${esc(entity.name || 'Entity')}</h2>
-          <p>${esc(entity.domain || '')}</p>
           <div id="chat-vibe-area"></div>
         </div>
-        <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
-          <button class="btn-icon" id="clear-history-btn" title="ล้างประวัติการสนทนาทั้งหมด">🗑️</button>
-          <button class="btn-icon" id="overview-btn" title="ภาพรวมพี่ — เม้ามอยจากไพ่ที่ออกมา">📜</button>
-          <button class="btn-icon" id="notebook-btn" title="สมุดของพี่">📖</button>
-          <button class="btn-icon" id="edit-entity-btn" title="แก้ไข profile">✏️</button>
-        </div>
-        <div class="moon-badge" title="${moon.meaningTH}">${moon.emoji} ${moon.nameTH}</div>
       </div>
 
       <div class="chat-messages" id="chat-messages"></div>
@@ -92,19 +84,11 @@ export function renderChat(entityId, readingId, container) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  // Clear history
-  container.querySelector('#clear-history-btn').addEventListener('click', () => {
-    if (!confirm(`ล้างประวัติการสนทนากับ ${entity.name} ทั้งหมดไหม?\n(ลบออกถาวร ไม่สามารถกู้คืนได้)`)) return;
-    clearEntityReadings(entityId);
-    chatMessages.innerHTML = '';
-    readings.length = 0;
-    showToast('ล้างประวัติแล้ว', 'success');
-  });
-
-  // Edit entity
-  container.querySelector('#edit-entity-btn').addEventListener('click', () => navigate(`#/entity/${entityId}`));
-  container.querySelector('#overview-btn').addEventListener('click', () => openOverview(entity));
-  container.querySelector('#notebook-btn').addEventListener('click', () => navigate(`#/notebook/${entityId}`));
+  // Header: avatar or name opens this entity's info page in the notebook
+  container.querySelector('#chat-back').addEventListener('click', () => navigate('#/'));
+  const openInfo = () => navigate(`#/notebook/${entityId}/info`);
+  container.querySelector('#chat-ava').addEventListener('click', openInfo);
+  container.querySelector('#chat-info h2').addEventListener('click', openInfo);
 
   // Card picker
   const questionInput = container.querySelector('#question-input');

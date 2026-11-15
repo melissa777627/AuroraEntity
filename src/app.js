@@ -15,6 +15,8 @@ import { renderCouncil } from '../components/council.js';
 import { renderGrievance } from '../components/grievance.js';
 import { renderOffering } from '../components/offering.js';
 import { renderNotebook } from '../components/notebook.js';
+import { renderShelf } from '../components/shelf.js';
+import { renderToday } from '../components/today.js';
 import { renderBackstage, prefetchMidnightChat, prefetchBackstageEpisodes } from '../components/backstage.js';
 
 // ── Global navigate helper exposed to inline onclick ──
@@ -127,14 +129,18 @@ function updateSidebar() {
   moonBadge.title = moon.meaningTH;
 }
 
+// Which bottom tab a route belongs to
+const TAB_OF = { '': 'home', shelf: 'shelf', notebook: 'shelf', today: 'today', 'card-of-day': 'today', offering: 'today', grievance: 'today', backstage: 'today', lounge: 'lounge' };
 function updateMobileNav() {
-  const { hash } = getRoute();
+  const { parts } = getRoute();
+  const tab = TAB_OF[parts[0] || ''] || '';
+  // chat and the open notebook need the whole screen
+  document.body.classList.toggle('no-tabs', parts[0] === 'chat' || (parts[0] === 'notebook' && !!parts[1]));
   document.querySelectorAll('#mobile-nav a').forEach(a => {
-    const route = a.dataset.route || '__';
-    a.classList.toggle('active', hash.includes(route));
-    if (route === 'grievance') a.classList.toggle('has-notification', hasUnreadGrievance());
+    const route = a.dataset.route;
+    a.classList.toggle('active', route === tab);
+    if (route === 'today') a.classList.toggle('has-notification', hasUnreadGrievance() || hasUnreadBackstage());
     if (route === 'lounge') a.classList.toggle('has-notification', hasUnreadLounge());
-    if (route === 'backstage') a.classList.toggle('has-notification', hasUnreadBackstage());
   });
 }
 
@@ -188,6 +194,12 @@ async function render() {
       break;
     case 'card-of-day':
       renderCardOfDayPage(main);
+      break;
+    case 'shelf':
+      renderShelf(main);
+      break;
+    case 'today':
+      renderToday(main);
       break;
     case 'notebook':
       renderNotebook(parts[1], main, parts[2]);
